@@ -2,20 +2,23 @@
 
 ## Primary input types
 
-| Type           | Expected Data                                             | UI Treatment                                       | Use case(s)                                        | Required secondary type |
+| Type           | Expected Data                                             | UI Treatment                                       | Use case(s)                                        | Accepts `definitions=` |
 |----------------|-----------------------------------------------------------|----------------------------------------------------|----------------------------------------------------|-------------------------|
-| `TextType`     | text: str                                                 | read-only text                                     | descriptions, source metadata                      |                         |
+| `FreeTextType` | text: str                                                 | read-only text                                     | descriptions, source metadata                      |                         |
 | `LabelType`    | categorical: int, str, bool)                              | colored badges, filter dropdown                    | classification                                     |                         |
 | `ScoreType`    | numerical: float, int                                     | range slider/filter, sortable                      | sentiment scores, classification confidence scores |                         |
-| `GroupType`    | categorical (int, str)                                    | sidebar group filter, shows group definition label | clustering, topic modeling                         | `GroupDefinition`       |
+| `GroupType`    | categorical (int, str)                                    | sidebar group filter, shows group definition label | clustering, topic modeling                         | ✓                       |
 | `SpanType`     | offsets + label (dict)                                    | inline highlight in text                           | NER, specific occurrences                          |                         |
-| `TemporalType` | orderable (integer, `datetime.Date`, `datetime.DateTime`) | sort axis, timeline                                | metadata, sequence ordering                        |                         |
+| `TemporalType` | orderable (integer, `datetime.date`, `datetime.datetime`) | sort axis, timeline                                | metadata, sequence ordering                        |                         |
+| `Point2DType`  | `(float, float)` — an (x, y) pair                         | scatter-plot position                              | projected document embeddings (UMAP/t-SNE)         |                         |
 
-## Secondary input types
+## `definitions=`
 
-| Type              | Expected Data | UI Treatment                       | Use case(s)                |
-|-------------------|---------------|------------------------------------|----------------------------|
-| `GroupDefinition` | dict          | Group definition subpage and cards | clustering, topic modeling |
+`GroupType` accepts an optional `definitions=` dict mapping each group id to
+a definition — a plain string, or a richer JSON-serializable object (e.g.
+keywords, scores) for the UI to render as a group-definition subpage/cards.
+The constructor's `group_definitions=` kwarg is sugar that attaches this to
+a `groups=` field passed by name.
 
 ## Classification with no ground-truth
 
@@ -46,7 +49,7 @@ texts = [...]
 predictions_with_conf_scores = classifier(texts)
 predictions, conf_scores = zip(*predictions_with_conf_scores)
 
-st = SourceText(texts, predictions=predictions, confidence_scores=conf_scores, gold=gold_labels)
+st = SourceText(texts, predictions=predictions, predictions_confidence=conf_scores, gold_labels=gold_labels)
 st_server = st.serve(port=8001)
 # visit localhost:8001
 st_server.stop()
@@ -62,7 +65,7 @@ texts = [...]
 # ...
 topics, topic_assignment = topic_model.fit(texts)
 
-st = SourceText(texts, group=topic_assignment, group_defs=topics)
+st = SourceText(texts, groups=topic_assignment, group_definitions=topics)
 st_server = st.serve(port=8001)
 # visit localhost:8001
 st_server.stop()
@@ -71,11 +74,18 @@ st_server.stop()
 ## Dataframe with predictions, gold labels and metadata
 
 ```python
-from sourcetext import SourceText
+from sourcetext import SourceText, TemporalType
 
 df = ...  # data frame with columns: id, text, year, prediction, gold
 
-st = SourceText(data=df, texts="text", predictions="prediction", gold="gold", ids="id", year="year")
+st = SourceText(
+    data=df,
+    texts="text",
+    predictions="prediction",
+    gold_labels="gold",
+    ids="id",
+    year=TemporalType("year"),  # custom fields (anything beyond the named presets) need explicit wrapping
+)
 st_server = st.serve(port=8001)
 # visit localhost:8001
 st_server.stop()

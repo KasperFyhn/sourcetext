@@ -22,13 +22,6 @@ from sourcetext.types import (
     resolve_source,
 )
 
-_PRESET_TYPES: dict[str, type[_PrimaryType]] = {
-    "predictions": LabelType,
-    "gold": LabelType,
-    "confidence": ScoreType,
-    "group": GroupType,
-}
-
 # A bare `str` in these signatures always means "column name, resolved against
 # data=" — this alias exists purely so the signature says that, rather than
 # leaving a reader to infer it from a generic `str`.
