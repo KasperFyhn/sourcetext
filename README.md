@@ -73,11 +73,10 @@ st_server.stop()
 ```python
 from sourcetext import SourceText
 
-df = ...  # data frame with columns: id, text, year, prediction, gold 
+df = ...  # data frame with columns: id, text, year, prediction, gold
 
 st = SourceText(data=df, texts="text", predictions="prediction", gold="gold", ids="id", year="year")
 st_server = st.serve(port=8001)
 # visit localhost:8001
 st_server.stop()
 ```
-

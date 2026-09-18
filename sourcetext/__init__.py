@@ -1,12 +1,12 @@
 from sourcetext.sourcetext import SourceText
 from sourcetext.types import (
     FreeTextType,
-    GroupDefinition,
     GroupType,
     LabelType,
+    Point2DType,
     ScoreType,
     SpanType,
-    Temporal,
+    TemporalType,
 )
 
 __all__ = [
@@ -14,8 +14,8 @@ __all__ = [
     "LabelType",
     "ScoreType",
     "GroupType",
-    "GroupDefinition",
     "SpanType",
-    "Temporal",
+    "TemporalType",
     "FreeTextType",
+    "Point2DType",
 ]

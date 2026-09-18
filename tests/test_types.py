@@ -4,12 +4,12 @@ import pytest
 
 from sourcetext.types import (
     FreeTextType,
-    GroupDefinition,
     GroupType,
     LabelType,
+    Point2DType,
     ScoreType,
     SpanType,
-    Temporal,
+    TemporalType,
 )
 
 
@@ -34,21 +34,11 @@ def test_score_type_resolves():
 def test_group_type_with_dict_definitions():
     g = GroupType([1, 2, 1], definitions={1: "topic one", 2: "topic two"})
     assert g.resolve() == [1, 2, 1]
-    assert g.resolve_secondary() == {1: "topic one", 2: "topic two"}
+    assert g.definitions == {1: "topic one", 2: "topic two"}
 
 
 def test_group_type_without_definitions_resolves_secondary_to_none():
-    assert GroupType([1, 2]).resolve_secondary() is None
-
-
-def test_group_definition_rejects_non_str_values():
-    with pytest.raises(TypeError):
-        GroupType([1, 2], definitions={1: 5}).resolve_secondary()
-
-
-def test_only_group_type_accepts_a_secondary():
-    with pytest.raises(TypeError):
-        LabelType([1, 2], secondary=GroupDefinition({1: "x"}))
+    assert GroupType([1, 2]).definitions is None
 
 
 def test_span_type_resolves_and_allows_empty_spans():
@@ -66,22 +56,53 @@ def test_span_type_rejects_missing_keys():
         SpanType([[{"start": 0, "end": 2}]]).resolve()
 
 
+def test_span_type_rejects_non_list_value():
+    with pytest.raises(TypeError):
+        SpanType(["not-a-list"]).resolve()
+
+
 def test_temporal_granularity_year():
-    assert Temporal([2020, 2021]).granularity() == "year"
+    assert TemporalType([2020, 2021]).granularity() == "year"
 
 
 def test_temporal_granularity_day():
-    assert Temporal([dt.date(2020, 1, 1)]).granularity() == "day"
+    assert TemporalType([dt.date(2020, 1, 1)]).granularity() == "day"
 
 
 def test_temporal_granularity_datetime():
-    assert Temporal([dt.datetime(2020, 1, 1, 12, 0)]).granularity() == "datetime"
+    assert TemporalType([dt.datetime(2020, 1, 1, 12, 0)]).granularity() == "datetime"
 
 
 def test_temporal_rejects_mixed_granularity():
     with pytest.raises(TypeError):
-        Temporal([2020, dt.date(2021, 1, 1)]).granularity()
+        TemporalType([2020, dt.date(2021, 1, 1)]).granularity()
 
 
 def test_free_text_type_resolves():
     assert FreeTextType(["a note"]).resolve() == ["a note"]
+
+
+def test_group_type_definitions_can_be_rich_json_objects():
+    definition = {"label": "Nature", "keywords": ["tree", "forest"]}
+    g = GroupType([0], definitions={0: definition})
+    assert g.definitions == {0: definition}
+
+
+def test_point2d_type_resolves_tuples_and_lists():
+    points = [(0.1, 0.2), [1, 2], None]
+    assert Point2DType(points).resolve() == points
+
+
+def test_point2d_type_rejects_wrong_length():
+    with pytest.raises(TypeError):
+        Point2DType([(0.1, 0.2, 0.3)]).resolve()
+
+
+def test_point2d_type_rejects_non_numeric_coordinates():
+    with pytest.raises(TypeError):
+        Point2DType([("x", "y")]).resolve()
+
+
+def test_point2d_type_rejects_non_sequence_value():
+    with pytest.raises(TypeError):
+        Point2DType(["not-a-point"]).resolve()

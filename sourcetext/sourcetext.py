@@ -1,11 +1,26 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, TypeAlias
 
 import pandas as pd
 
-from sourcetext import schema
-from sourcetext.types import GroupType, LabelType, ScoreType, _PrimaryType, resolve_source
+from sourcetext import db
+from sourcetext.types import (
+    FreeTextType,
+    GroupType,
+    IdType,
+    IdValue,
+    LabelType,
+    LabelValue,
+    Point2DType,
+    ScoreType,
+    ScoreValue,
+    SpanType,
+    TemporalType,
+    _PrimaryType,
+    resolve_source,
+)
 
 _PRESET_TYPES: dict[str, type[_PrimaryType]] = {
     "predictions": LabelType,
@@ -14,46 +29,119 @@ _PRESET_TYPES: dict[str, type[_PrimaryType]] = {
     "group": GroupType,
 }
 
+# A bare `str` in these signatures always means "column name, resolved against
+# data=" — this alias exists purely so the signature says that, rather than
+# leaving a reader to infer it from a generic `str`.
+ColumnName: TypeAlias = str
+
 
 class SourceText:
     def __init__(
         self,
-        texts: list[str] | str | None = None,
+        texts: ColumnName | Iterable[str] = None,
         *,
         data: pd.DataFrame | None = None,
-        ids: list | str | None = None,
-        predictions: Any = None,
-        gold: Any = None,
-        **fields: Any,
+        ids: ColumnName | Iterable[IdValue] | IdType | None = None,
+        predictions: ColumnName | Iterable[LabelValue] | LabelType | None = None,
+        predictions_confidence: ColumnName | Iterable[ScoreValue] | ScoreType | None = None,
+        gold_labels: ColumnName | Iterable[LabelValue] | LabelType | None = None,
+        scores: ColumnName | Iterable[ScoreValue] | ScoreType | None = None,
+        groups: ColumnName | Iterable[LabelValue] | LabelType | None = None,
+        group_definitions: dict[str, Any] = None,
+        **fields: LabelType | ScoreType | GroupType | TemporalType,
     ) -> None:
         self._validate_mode(texts, data)
+
+        # Init DB
+        self._create_session = db.get_sessionmaker()
+        self._session = self._create_session()
+
+        # resolve documents and add to DB
         text_values = resolve_source(texts, data, "texts")
         n = len(text_values)
+        doc_ids = resolve_source(ids, data, "ids") if ids is not None else list(range(n))
+        if len(doc_ids) != n:
+            raise TypeError(f"`ids` has {len(doc_ids)} value(s), but `texts` has {n}.")
+        db.add_documents(self._session, doc_ids, text_values)
+        self._session.commit()
 
-        instance_ids = resolve_source(ids, data, "ids") if ids is not None else list(range(n))
-        if len(instance_ids) != n:
-            raise TypeError(f"`ids` has {len(instance_ids)} value(s), but `texts` has {n}.")
+        # First, add named arguments to the fields dict
+        if predictions is not None:
+            if not isinstance(predictions, LabelType):
+                predictions = LabelType(predictions)
+            fields["predictions"] = predictions
+        if predictions_confidence is not None:
+            if not isinstance(predictions_confidence, ScoreType):
+                predictions_confidence = ScoreType(predictions_confidence)
+            fields["predictions_confidence"] = predictions_confidence
+        if gold_labels is not None:
+            if not isinstance(gold_labels, LabelType):
+                gold_labels = LabelType(gold_labels)
+            fields["gold_labels"] = gold_labels
+        if scores is not None:
+            if not isinstance(scores, ScoreType):
+                scores = ScoreType(scores)
+            fields["scores"] = scores
+        if groups is not None:
+            if not isinstance(groups, GroupType):
+                groups = GroupType(groups)
+            if group_definitions is not None:
+                if groups.definitions is not None:
+                    raise TypeError(
+                        "`groups` already has a `definitions=` secondary; don't also pass `group_definitions=`."
+                    )
+                groups = GroupType(groups.source, definitions=group_definitions)
+            fields["groups"] = groups
+        elif group_definitions is not None:
+            raise TypeError("`group_definitions` was given but no `groups=` field was provided to attach it to.")
 
-        typed_fields = self._collect_typed_fields(predictions=predictions, gold=gold, **fields)
+        # Now, populate the DB with all fields
+        for field_name, source in fields.items():
+            if not isinstance(source, _PrimaryType):
+                raise TypeError(
+                    f"`{field_name}` is given as raw input. Custom fields"
+                    f"should be wrapped in an input type (LabelType, "
+                    f"ScoreType, etc.) so that sourcetext knows how to "
+                    f"deal with it datawise and in the UI."
+                )
 
-        tables = schema.empty_tables()
-        tables["instances"] = pd.DataFrame({"instance_id": instance_ids, "text": text_values})
-        for field_name, typed_field in typed_fields.items():
-            schema.add_field(tables, field_name, typed_field, instance_ids, data)
+            values = source.resolve(data)
+            if isinstance(source, LabelType):
+                db.add_labels(self._session, field_name, doc_ids, values)
+            elif isinstance(source, ScoreType):
+                db.add_scores(self._session, field_name, doc_ids, values)
+            elif isinstance(source, GroupType):
+                db.add_groups(self._session, field_name, doc_ids, values)
+                if source.definitions:
+                    db.add_group_definitions(self._session, field_name, source.definitions)
+            elif isinstance(source, FreeTextType):
+                db.add_free_text(self._session, field_name, doc_ids, values)
+            elif isinstance(source, TemporalType):
+                granularity = source.granularity(data)
+                if granularity == "year":
+                    db.add_temporal_years(self._session, field_name, doc_ids, values)
+                elif granularity == "day":
+                    db.add_temporal_dates(self._session, field_name, doc_ids, values)
+                else:
+                    db.add_temporal_datetimes(self._session, field_name, doc_ids, values)
+            elif isinstance(source, SpanType):
+                db.add_spans(self._session, field_name, doc_ids, values)
+            elif isinstance(source, Point2DType):
+                db.add_points_2d(self._session, field_name, doc_ids, values)
+            else:
+                raise TypeError(f"Unsupported input type for `{field_name}`! Got {type(source)}")
+            self._session.commit()
 
-        self._tables = tables
-        self.instance_ids = instance_ids
+        self.doc_ids = doc_ids
 
     @staticmethod
-    def _validate_mode(texts: Any, data: pd.DataFrame | None) -> None:
+    def _validate_mode(texts: ColumnName | Iterable[str] | None, data: pd.DataFrame | None) -> None:
         if texts is None:
-            raise TypeError(
-                "`texts` is required: a list of strings, or a column name (str) when `data=` is given."
-            )
+            raise TypeError("`texts` is required: a list of strings, or a column name (str) when `data=` is given.")
         if data is not None and not isinstance(texts, str):
             raise TypeError(
                 "When `data=` is given, `texts` must be the name of the text column "
-                f"(str), not a {type(texts).__name__}. Pass texts=\"<column name>\"."
+                f'(str), not a {type(texts).__name__}. Pass texts="<column name>".'
             )
         if data is None and isinstance(texts, str):
             raise TypeError(
@@ -61,38 +149,3 @@ class SourceText:
                 "given to resolve it against. Pass `data=<DataFrame>`, or give `texts` "
                 "as a list of raw strings."
             )
-
-    @staticmethod
-    def _collect_typed_fields(predictions: Any = None, gold: Any = None, **fields: Any) -> dict[str, _PrimaryType]:
-        named = {"predictions": predictions, "gold": gold, **fields}
-        named = {k: v for k, v in named.items() if v is not None}
-        group_defs = named.pop("group_defs", None)
-
-        resolved: dict[str, _PrimaryType] = {}
-        for field_name, value in named.items():
-            if isinstance(value, _PrimaryType):
-                resolved[field_name] = value
-                continue
-            preset_type = _PRESET_TYPES.get(field_name)
-            if preset_type is None:
-                raise TypeError(
-                    f"`{field_name}` is not a recognized preset field "
-                    f"({sorted(_PRESET_TYPES)}) and was not given as a typed field "
-                    f"instance. Wrap arbitrary fields explicitly, "
-                    f"e.g. {field_name}=LabelType(...)."
-                )
-            resolved[field_name] = preset_type(value)
-
-        if group_defs is not None:
-            if "group" not in resolved:
-                raise TypeError("`group_defs` was given but no `group=` field was provided to attach it to.")
-            group_field = resolved["group"]
-            if not isinstance(group_field, GroupType):
-                raise TypeError(
-                    f"`group_defs` requires `group=` to be a GroupType, got {type(group_field).__name__}."
-                )
-            if group_field.secondary is not None:
-                raise TypeError("`group` already has a `definitions=` secondary; don't also pass `group_defs=`.")
-            resolved["group"] = GroupType(group_field.source, definitions=group_defs)
-
-        return resolved

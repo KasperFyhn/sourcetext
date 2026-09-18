@@ -27,18 +27,16 @@ confidence can use it correctly on the first try.
 class SourceText:
     def __init__(
         self,
-        texts=None,           # list[str], OR omit if data= is given
+        texts=None,  # list[str], OR omit if data= is given
         *,
-        data=None,             # optional pd.DataFrame; if given, other args are column names
+        data=None,  # optional pd.DataFrame; if given, other args are column names
         ids=None,
         predictions=None,
         gold=None,
-        **fields,               # named or dynamic typed fields (see Type System)
-    ):
-        ...
+        **fields,  # named or dynamic typed fields (see Type System)
+    ): ...
 
-    def serve(self, port: int | None = None, inline: bool = True) -> "ServerHandle":
-        ...
+    def serve(self, port: int | None = None, inline: bool = True) -> "ServerHandle": ...
 ```
 
 - All named/simple kwargs (`predictions=`, `gold=`, `confidence=`, `group=`, etc.)
@@ -86,8 +84,7 @@ types under the hood; `**fields` allows arbitrary additional typed fields for
 expert users, e.g.:
 
 ```python
-SourceText(data=df, texts="text", predictions="prediction",
-           secondary_label=LabelType("topic_label"))
+SourceText(data=df, texts="text", predictions="prediction", secondary_label=LabelType("topic_label"))
 ```
 
 Each type must resolve to a defined UI treatment — this mapping is the actual
@@ -104,6 +101,7 @@ the data is).
 | `SpanType` | `list[dict]` per instance — offsets + label (an instance may have zero, one, or many spans) | inline highlight in text | NER, specific occurrences | — |
 | `Temporal` | orderable: `int` (year), `datetime.date`, `datetime.datetime` | sort axis / timeline; UI granularity dispatches on the underlying Python type (bare `int` → year-level, no calendar coercion attempted; `date` → day; `datetime` → full timestamp) | metadata, sequence ordering | — |
 | `FreeTextType` | `str` | free-form display field | editorial notes, source metadata (read-only, supplied at construction) | — |
+| `Point2DType` | `(float, float)` per instance — an (x, y) pair | scatter-plot position | projected document embeddings (UMAP/t-SNE) | — |
 
 ### Secondary types
 
@@ -167,6 +165,8 @@ with a reserved `field_name`.
   `temporal_datetime(instance_id, field_name, value)` — `Temporal`, split into
   one table per granularity rather than inferring the underlying Python type
   at query time, so DuckDB columns stay natively typed.
+- `points_2d(instance_id, field_name, x, y)` — `Point2DType`, e.g. a projected
+  document embedding.
 - `free_text(instance_id, field_name, value)` — `FreeTextType`.
 
 A bug fix or new field only needs a new branch in `schema.add_field`, not
