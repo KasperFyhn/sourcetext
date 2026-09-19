@@ -5,7 +5,8 @@ from typing import Any, TypeAlias
 
 import pandas as pd
 
-from sourcetext import db
+import sourcetext.db as db
+from sourcetext.server.backgroundserver import BackgroundServer
 from sourcetext.types import (
     FreeTextType,
     GroupType,
@@ -127,6 +128,8 @@ class SourceText:
 
         self.doc_ids = doc_ids
 
+        self._server = None
+
     @staticmethod
     def _validate_mode(texts: ColumnName | Iterable[str] | None, data: pd.DataFrame | None) -> None:
         if texts is None:
@@ -142,3 +145,22 @@ class SourceText:
                 "given to resolve it against. Pass `data=<DataFrame>`, or give `texts` "
                 "as a list of raw strings."
             )
+
+    def start_server(self, port: int = 8001, block: bool | None = None):
+        """Serve the visualizer application.
+
+        Args:
+            port: The port that the visualizer should be served on.
+            block: If True, block until the server is stopped (e.g. via ctrl+c) —
+                for a plain script. If False, run in the background within an
+                already-running event loop (e.g. Jupyter). If None (default),
+                auto-detect based on whether an event loop is already running.
+        """
+
+        self._server = BackgroundServer(self._create_session, port=port)
+        self._server.start(block=block)
+
+    def stop_server(self):
+        if self._server is not None:
+            self._server.stop()
+            self._server = None

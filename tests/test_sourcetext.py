@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from sourcetext import FreeTextType, LabelType, Point2DType, SourceText, SpanType, TemporalType
-from sourcetext.schema import (
+from sourcetext.db.schema import (
     Document,
     FreeText,
     Group,

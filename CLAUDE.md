@@ -78,6 +78,15 @@ in `types.py`, a table in `schema.py`, an `add_*` function in `db.py`, a
 dispatch branch in `sourcetext.py`'s loop, an export in `sourcetext/__init__.py`,
 and a row/table update in `sourcetext-spec.md` and `README.md`.
 
-**Not yet implemented**: `SourceText.serve()`, the FastAPI serving layer, and
-interpretive-annotation write-back are all in `sourcetext-spec.md` as target
-design but don't exist in code yet — don't assume they work.
+**Server + UI (scaffold only)**: `SourceText.start_server()` runs the FastAPI app
+in `sourcetext/server/` via `BackgroundServer` (blocks in a plain script,
+backgrounds when an event loop is already running, e.g. Jupyter). The React/TS
+frontend lives in `ui/`; `./scripts/build-frontend.sh` builds it into the
+gitignored `sourcetext/server/static/`, which FastAPI mounts at `/` (API routes
+live under `/api`; `npm run dev` proxies `/api` to port 8001). Only a dummy
+`GET /api/ping` DB round trip exists. Routes must be `async def`: in-memory
+DuckDB is per-thread, so FastAPI's threadpool would see an empty DB.
+
+**Not yet implemented**: `SourceText.serve()`/`ServerHandle`, the real document
+routes, and interpretive-annotation write-back are in `sourcetext-spec.md` as
+target design but don't exist in code yet — don't assume they work.

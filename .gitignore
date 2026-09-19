@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Frontend build copied into the Python package by scripts/build-frontend.sh
+sourcetext/server/static/

@@ -9,11 +9,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, Sequence, TypeVar
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
-from sourcetext.schema import (
-    Base,
+from sourcetext.db.schema import (
     Document,
     FreeText,
     Group,
@@ -28,16 +26,6 @@ from sourcetext.schema import (
 )
 
 _ScalarModel = TypeVar("_ScalarModel", Label, Score, Group, TemporalYear, TemporalDate, TemporalDatetime, FreeText)
-
-
-def get_sessionmaker(url: str = "duckdb:///:memory:") -> sessionmaker[Session]:
-    """Build a sessionmaker bound to `url`, creating tables if they don't exist yet.
-
-    Defaults to an in-memory DuckDB engine per sourcetext-spec.md's backend choice.
-    """
-    engine = create_engine(url)
-    Base.metadata.create_all(engine)
-    return sessionmaker(bind=engine)
 
 
 def add_documents(session: Session, ids: Sequence, texts: Sequence[str]) -> list[Document]:
