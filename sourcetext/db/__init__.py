@@ -11,9 +11,16 @@ from sourcetext.db.population import (
     add_temporal_dates,
     add_temporal_datetimes,
     add_temporal_years,
+    set_note,
 )
+from sourcetext.db.queries import DocumentRow, FieldInfo, count_documents, list_documents, list_fields
 
 __all__ = [
+    "DocumentRow",
+    "FieldInfo",
+    "count_documents",
+    "list_documents",
+    "list_fields",
     "get_sessionmaker",
     "add_documents",
     "add_free_text",
@@ -26,4 +33,5 @@ __all__ = [
     "add_temporal_dates",
     "add_temporal_datetimes",
     "add_temporal_years",
+    "set_note",
 ]

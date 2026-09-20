@@ -5,3 +5,10 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier (ui)
+        entry: ui/node_modules/.bin/prettier --write --ignore-unknown --ignore-path ui/.prettierignore
+        language: system
+        files: ^ui/

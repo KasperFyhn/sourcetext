@@ -17,6 +17,7 @@ from sourcetext.db.schema import (
     Group,
     GroupDefinition,
     Label,
+    Note,
     Point2D,
     Score,
     Span,
@@ -152,3 +153,10 @@ def add_spans(session: Session, field_name: str, document_ids: Sequence, values:
     ]
     session.add_all(spans)
     return spans
+
+
+def set_note(session: Session, document_id: str, text: str) -> Note:
+    """Create or replace the note for `document_id`. The document must exist."""
+    if session.get(Document, str(document_id)) is None:
+        raise KeyError(f"No document with id {document_id!r}.")
+    return session.merge(Note(document_id=str(document_id), text=text))

@@ -161,3 +161,13 @@ class Point2D(Base):
     y: Mapped[float] = mapped_column(Double, nullable=False)
 
     document: Mapped[Document] = relationship(back_populates="points_2d")
+
+
+class Note(Base):
+    """A researcher's free-form interpretive note on a document. Written from the
+    UI, not part of the typed-field system (and not a `FreeTextType` field)."""
+
+    __tablename__ = "notes"
+
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)

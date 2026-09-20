@@ -83,10 +83,21 @@ in `sourcetext/server/` via `BackgroundServer` (blocks in a plain script,
 backgrounds when an event loop is already running, e.g. Jupyter). The React/TS
 frontend lives in `ui/`; `./scripts/build-frontend.sh` builds it into the
 gitignored `sourcetext/server/static/`, which FastAPI mounts at `/` (API routes
-live under `/api`; `npm run dev` proxies `/api` to port 8001). Only a dummy
-`GET /api/ping` DB round trip exists. Routes must be `async def`: in-memory
+live under `/api`; `npm run dev` proxies `/api` to port 8001, or `$SOURCETEXT_API_PORT`). Routes so far:
+`GET /api/documents` (paginated documents + scalar field values + note) and
+`PUT /api/documents/{id}/note` (notes live in the `notes` table, which is not a
+typed field). Read helpers are in `db/queries.py`. Routes must be `async def`: in-memory
 DuckDB is per-thread, so FastAPI's threadpool would see an empty DB.
 
-**Not yet implemented**: `SourceText.serve()`/`ServerHandle`, the real document
-routes, and interpretive-annotation write-back are in `sourcetext-spec.md` as
+**Dev workflow**: mock data lives outside the package in `dev/` (one module per
+scenario in `dev/scenarios/`, each exposing `make_source_text()`). Run
+`./scripts/dev.sh <scenario>` for the API on :8001 plus the hot-reloading Vite
+UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
+`sourcetext/server/static/`; startup fails if there is no build). `--dev` sets the
+internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
+the built UI (API only); `dev.sh` uses it.
+
+**Not yet implemented**: `SourceText.serve()`/`ServerHandle`, filtering and
+span/point rendering in the UI, and the sidecar-file persistence of notes (they
+currently live in the same DuckDB as the data) are in `sourcetext-spec.md` as
 target design but don't exist in code yet — don't assume they work.
