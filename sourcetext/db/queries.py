@@ -12,6 +12,7 @@ from sourcetext.db.schema import (
     Group,
     Label,
     Note,
+    Point2D,
     Score,
     TemporalDate,
     TemporalDatetime,
@@ -44,16 +45,42 @@ class DocumentRow:
     note: str = ""
 
 
+@dataclass
+class ScatterPointRow:
+    document_id: str
+    x: float
+    y: float
+    text: str
+    group: str | None = None
+
+
 def _serialize(value: Any) -> Any:
     return value.isoformat() if hasattr(value, "isoformat") else value
 
 
+def _field_names(session: Session, table) -> list[str]:
+    """Distinct field_name values for a `(id, field_name, ...)`-shaped table, in
+    insertion order (first-seen id per name). Works for any table sharing that
+    shape, whether via the `_ScalarField` mixin or a standalone model like `Point2D`."""
+    stmt = select(table.field_name).group_by(table.field_name).order_by(func.min(table.id))
+    return list(session.execute(stmt).scalars())
+
+
 def list_fields(session: Session) -> list[FieldInfo]:
-    """Every scalar field name present in the DB, in insertion order within each type."""
+    """Every field name present in the DB, in insertion order within each type."""
     fields = []
     for kind, table in _SCALAR_TABLES:
-        stmt = select(table.field_name).group_by(table.field_name).order_by(func.min(table.id))
-        fields += [FieldInfo(name, kind) for name in session.execute(stmt).scalars()]
+        fields += [FieldInfo(name, kind) for name in _field_names(session, table)]
+    fields += [FieldInfo(name, "point_2d") for name in _field_names(session, Point2D)]
+    return fields
+
+
+def list_scatter_fields(session: Session) -> list[FieldInfo]:
+    """Every point_2d and score field name (the two types that fit on a scatterplot's
+    axes), plus every group field name (for optionally coloring points by group)."""
+    fields = [FieldInfo(name, "point_2d") for name in _field_names(session, Point2D)]
+    fields += [FieldInfo(name, "score") for name in _field_names(session, Score)]
+    fields += [FieldInfo(name, "group") for name in _field_names(session, Group)]
     return fields
 
 
@@ -61,15 +88,80 @@ def count_documents(session: Session) -> int:
     return session.execute(select(func.count()).select_from(Document)).scalar_one()
 
 
-def list_documents(session: Session, limit: int = 50, offset: int = 0) -> list[DocumentRow]:
-    """A page of documents (in insertion order) with their scalar field values."""
-    stmt = select(Document).order_by(literal_column("rowid")).limit(limit).offset(offset)
-    rows = {doc.id: DocumentRow(doc.id, doc.text, {}) for doc in session.execute(stmt).scalars()}
+def _populate_values_and_notes(session: Session, rows: dict[str, DocumentRow]) -> None:
+    """Fill in field values and notes for an `{id: DocumentRow}` mapping, in place."""
     for _, table in _SCALAR_TABLES:
         stmt = select(table.document_id, table.field_name, table.value).where(table.document_id.in_(rows.keys()))
         for document_id, field_name, value in session.execute(stmt):
             rows[document_id].values[field_name] = _serialize(value)
+    # Point2D isn't a `_SCALAR_TABLES` entry: its value is an (x, y) pair, not a
+    # single `.value` column, so it's serialized as a 2-element list instead.
+    stmt = select(Point2D.document_id, Point2D.field_name, Point2D.x, Point2D.y).where(
+        Point2D.document_id.in_(rows.keys())
+    )
+    for document_id, field_name, x, y in session.execute(stmt):
+        rows[document_id].values[field_name] = [x, y]
     stmt = select(Note.document_id, Note.text).where(Note.document_id.in_(rows.keys()))
     for document_id, text in session.execute(stmt):
         rows[document_id].note = text
+
+
+def list_documents(session: Session, limit: int = 50, offset: int = 0) -> list[DocumentRow]:
+    """A page of documents (in insertion order) with their scalar field values."""
+    stmt = select(Document).order_by(literal_column("rowid")).limit(limit).offset(offset)
+    rows = {doc.id: DocumentRow(doc.id, doc.text, {}) for doc in session.execute(stmt).scalars()}
+    _populate_values_and_notes(session, rows)
     return list(rows.values())
+
+
+def get_document(session: Session, document_id: str) -> DocumentRow | None:
+    """A single document with its scalar field values and note, or None if it doesn't exist."""
+    document = session.get(Document, document_id)
+    if document is None:
+        return None
+    rows = {document.id: DocumentRow(document.id, document.text, {})}
+    _populate_values_and_notes(session, rows)
+    return rows[document.id]
+
+
+def _group_value_subquery(group_field: str):
+    """A `(document_id, value)` subquery for one GroupType field, for an optional
+    outer join onto a scatter query — documents without a value for it just get
+    `group=None` rather than being dropped (unlike the x/y axis fields, a missing
+    group shouldn't hide the point)."""
+    return select(Group.document_id, Group.value).where(Group.field_name == group_field).subquery()
+
+
+def list_points_2d(session: Session, field_name: str, group_field: str | None = None) -> list[ScatterPointRow]:
+    """All (x, y) points for one Point2DType field, joined to their document text
+    and, if `group_field` is given, that GroupType field's value per document."""
+    stmt = (
+        select(Point2D.document_id, Point2D.x, Point2D.y, Document.text)
+        .join(Document, Document.id == Point2D.document_id)
+        .where(Point2D.field_name == field_name)
+    )
+    if group_field is None:
+        return [ScatterPointRow(doc_id, x, y, text) for doc_id, x, y, text in session.execute(stmt)]
+    groups = _group_value_subquery(group_field)
+    stmt = stmt.add_columns(groups.c.value).outerjoin(groups, groups.c.document_id == Point2D.document_id)
+    return [ScatterPointRow(doc_id, x, y, text, group) for doc_id, x, y, text, group in session.execute(stmt)]
+
+
+def list_score_pairs(
+    session: Session, x_field: str, y_field: str, group_field: str | None = None
+) -> list[ScatterPointRow]:
+    """Two ScoreType fields combined into (x, y) pairs, and if `group_field` is
+    given, that GroupType field's value per document. Inner join on the two score
+    fields: documents missing either score are simply omitted."""
+    x_scores = select(Score.document_id, Score.value.label("x")).where(Score.field_name == x_field).subquery()
+    y_scores = select(Score.document_id, Score.value.label("y")).where(Score.field_name == y_field).subquery()
+    stmt = (
+        select(x_scores.c.document_id, x_scores.c.x, y_scores.c.y, Document.text)
+        .join(y_scores, y_scores.c.document_id == x_scores.c.document_id)
+        .join(Document, Document.id == x_scores.c.document_id)
+    )
+    if group_field is None:
+        return [ScatterPointRow(doc_id, x, y, text) for doc_id, x, y, text in session.execute(stmt)]
+    groups = _group_value_subquery(group_field)
+    stmt = stmt.add_columns(groups.c.value).outerjoin(groups, groups.c.document_id == x_scores.c.document_id)
+    return [ScatterPointRow(doc_id, x, y, text, group) for doc_id, x, y, text, group in session.execute(stmt)]

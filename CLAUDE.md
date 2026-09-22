@@ -84,10 +84,21 @@ backgrounds when an event loop is already running, e.g. Jupyter). The React/TS
 frontend lives in `ui/`; `./scripts/build-frontend.sh` builds it into the
 gitignored `sourcetext/server/static/`, which FastAPI mounts at `/` (API routes
 live under `/api`; `npm run dev` proxies `/api` to port 8001, or `$SOURCETEXT_API_PORT`). Routes so far:
-`GET /api/documents` (paginated documents + scalar field values + note) and
-`PUT /api/documents/{id}/note` (notes live in the `notes` table, which is not a
-typed field). Read helpers are in `db/queries.py`. Routes must be `async def`: in-memory
-DuckDB is per-thread, so FastAPI's threadpool would see an empty DB.
+`GET /api/documents/tabular` (paginated documents + scalar field values + note),
+`GET /api/documents/scatter` (unpaginated `point_2d`/`score` fields plotted as
+`{documentId, x, y, text, group}` — pass `field=<point_2d field>` to plot one
+directly, or `xField=`/`yField=<score fields>` to combine two score fields as axes;
+pass neither to just list available fields; optionally add `colorField=<group
+field>` to attach that GroupType field's value per point for client-side coloring),
+`GET /api/documents/fields` (the full field list, for
+a document-detail pane not otherwise loading a page of documents), `GET
+/api/documents/{id}` (one document's full scalar field values + note — used to
+populate that detail pane on selection from a non-tabular view), and `PUT
+/api/documents/{id}/note` (notes live in the `notes` table, which is not a typed
+field). Read helpers are in `db/queries.py`. Routes must be `async def`: in-memory
+DuckDB is per-thread, so FastAPI's threadpool would see an empty DB. The
+`{document_id}`-taking routes are registered after the static `tabular`/`scatter`/
+`fields` routes so FastAPI matches those literal paths first.
 
 **Dev workflow**: mock data lives outside the package in `dev/` (one module per
 scenario in `dev/scenarios/`, each exposing `make_source_text()`). Run
@@ -98,6 +109,6 @@ internal `sourcetext.server.app.DEV` switch (not public API), which skips mounti
 the built UI (API only); `dev.sh` uses it.
 
 **Not yet implemented**: `SourceText.serve()`/`ServerHandle`, filtering and
-span/point rendering in the UI, and the sidecar-file persistence of notes (they
+span rendering in the UI, and the sidecar-file persistence of notes (they
 currently live in the same DuckDB as the data) are in `sourcetext-spec.md` as
 target design but don't exist in code yet — don't assume they work.

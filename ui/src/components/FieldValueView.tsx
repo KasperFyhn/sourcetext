@@ -12,6 +12,14 @@ export function FieldValueView({
   if (value === undefined || value === null) return <Text c="dimmed">–</Text>
   if (field.type === 'label' || field.type === 'group')
     return <Badge variant="light">{value}</Badge>
+  if (field.type === 'point_2d' && Array.isArray(value)) {
+    const [x, y] = value
+    return (
+      <Text>
+        ({x.toFixed(2)}, {y.toFixed(2)})
+      </Text>
+    )
+  }
   if (typeof value === 'number' && !Number.isInteger(value))
     return <Text>{value.toFixed(3)}</Text>
   return <Text truncate>{value}</Text>

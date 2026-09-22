@@ -13,14 +13,30 @@ from sourcetext.db.population import (
     add_temporal_years,
     set_note,
 )
-from sourcetext.db.queries import DocumentRow, FieldInfo, count_documents, list_documents, list_fields
+from sourcetext.db.queries import (
+    DocumentRow,
+    FieldInfo,
+    ScatterPointRow,
+    count_documents,
+    get_document,
+    list_documents,
+    list_fields,
+    list_points_2d,
+    list_scatter_fields,
+    list_score_pairs,
+)
 
 __all__ = [
     "DocumentRow",
     "FieldInfo",
+    "ScatterPointRow",
     "count_documents",
+    "get_document",
     "list_documents",
     "list_fields",
+    "list_points_2d",
+    "list_score_pairs",
+    "list_scatter_fields",
     "get_sessionmaker",
     "add_documents",
     "add_free_text",

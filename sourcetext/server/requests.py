@@ -21,5 +21,22 @@ class DocumentsResponse(CamelModel):
     total: int
 
 
+class FieldsResponse(CamelModel):
+    fields: list[FieldOut]
+
+
 class NoteIn(CamelModel):
     text: str
+
+
+class ScatterPointOut(CamelModel):
+    document_id: str
+    x: float
+    y: float
+    text: str
+    group: str | None = None
+
+
+class ScatterResponse(CamelModel):
+    fields: list[FieldOut]
+    points: list[ScatterPointOut]
