@@ -1,11 +1,33 @@
 from dataclasses import asdict
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import TypeAdapter, ValidationError
 
 import sourcetext.db as db
-from sourcetext.server.requests import DocumentOut, DocumentsResponse, FieldsResponse, NoteIn, ScatterResponse
+from sourcetext.server.requests import (
+    DocumentOut,
+    DocumentsResponse,
+    FieldFilterIn,
+    FieldsResponse,
+    NoteIn,
+    ScatterResponse,
+)
 
 router = APIRouter(prefix="/api")
+
+_field_filters_adapter = TypeAdapter(list[FieldFilterIn])
+
+
+def _parse_filters(filters: str | None) -> list[db.FieldFilter] | None:
+    """Decode the `filters` query param (a JSON-encoded array — see FieldFilterIn)
+    into `db.FieldFilter`s, or raise a 400 if it's malformed."""
+    if filters is None:
+        return None
+    try:
+        parsed = _field_filters_adapter.validate_json(filters)
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return [db.FieldFilter(**f.model_dump()) for f in parsed]
 
 
 # Must stay `async def`: in-memory DuckDB only shares data within the thread that
@@ -17,16 +39,26 @@ async def get_tabular_documents(
     offset: int = Query(0, ge=0),
     sort_field: str | None = Query(None, alias="sortField"),
     sort_dir: str = Query("asc", alias="sortDir", pattern="^(asc|desc)$"),
+    filters: str | None = Query(None),
 ):
     with request.app.state.db_sessionmaker() as session:
+        field_filters = _parse_filters(filters)
         try:
-            documents = db.list_documents(session, limit, offset, sort_field=sort_field, sort_desc=sort_dir == "desc")
+            documents = db.list_documents(
+                session,
+                limit,
+                offset,
+                sort_field=sort_field,
+                sort_desc=sort_dir == "desc",
+                filters=field_filters,
+            )
+            total = db.count_documents(session, filters=field_filters)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         return {
             "fields": [asdict(f) for f in db.list_fields(session)],
             "documents": [asdict(d) for d in documents],
-            "total": db.count_documents(session),
+            "total": total,
         }
 
 
@@ -37,6 +69,7 @@ async def get_scatter(
     x_field: str | None = Query(None, alias="xField"),
     y_field: str | None = Query(None, alias="yField"),
     color_field: str | None = Query(None, alias="colorField"),
+    filters: str | None = Query(None),
 ):
     if field is not None and (x_field is not None or y_field is not None):
         raise HTTPException(status_code=400, detail="Provide either `field` or `xField`+`yField`, not both.")
@@ -44,13 +77,17 @@ async def get_scatter(
         raise HTTPException(status_code=400, detail="`xField` and `yField` must be provided together.")
 
     with request.app.state.db_sessionmaker() as session:
+        field_filters = _parse_filters(filters)
         fields = db.list_scatter_fields(session)
-        if field is not None:
-            points = db.list_points_2d(session, field, group_field=color_field)
-        elif x_field is not None:
-            points = db.list_score_pairs(session, x_field, y_field, group_field=color_field)
-        else:
-            points = []
+        try:
+            if field is not None:
+                points = db.list_points_2d(session, field, group_field=color_field, filters=field_filters)
+            elif x_field is not None:
+                points = db.list_score_pairs(session, x_field, y_field, group_field=color_field, filters=field_filters)
+            else:
+                points = []
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         return {
             "fields": [asdict(f) for f in fields],
             "points": [asdict(p) for p in points],

@@ -2,14 +2,16 @@ import { Alert, Box, Flex, Loader, Pagination, Stack } from '@mantine/core'
 import { useEffect, useState } from 'react'
 
 import { fetchTabularDocuments, PAGE_SIZE } from '../api'
-import type { Document, DocumentsPage, Sort } from '../api'
+import type { Document, DocumentsPage, FieldFilter, Sort } from '../api'
 import { useDocumentNotes } from '../hooks/useDocumentNotes'
 import { DocumentTable } from './DocumentTable'
 import { DocumentView } from './DocumentView'
+import { FieldFilters } from './FieldFilters'
 
 export function TabularView() {
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState<Sort | null>(null)
+  const [filters, setFilters] = useState<FieldFilter[]>([])
   const [data, setData] = useState<DocumentsPage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)
@@ -20,7 +22,7 @@ export function TabularView() {
 
   useEffect(() => {
     let stale = false
-    fetchTabularDocuments(page, sort)
+    fetchTabularDocuments(page, sort, filters)
       .then((result) => {
         if (stale) return
         setData(result)
@@ -30,7 +32,7 @@ export function TabularView() {
     return () => {
       stale = true
     }
-  }, [page, sort])
+  }, [page, sort, filters])
 
   const handleSort = (field: string) => {
     setSort((current) => {
@@ -38,6 +40,11 @@ export function TabularView() {
       if (current.dir === 'asc') return { field, dir: 'desc' }
       return null
     })
+    setPage(1)
+  }
+
+  const handleFiltersChange: typeof setFilters = (value) => {
+    setFilters(value)
     setPage(1)
   }
 
@@ -55,6 +62,11 @@ export function TabularView() {
           {!error && !data && <Loader />}
           {data && (
             <>
+              <FieldFilters
+                fields={fields}
+                filters={filters}
+                onChange={handleFiltersChange}
+              />
               <DocumentTable
                 fields={fields}
                 documents={data.documents}

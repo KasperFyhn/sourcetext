@@ -11,15 +11,17 @@ import {
 import { useEffect, useState } from 'react'
 
 import { fetchDocument, fetchFields, fetchScatter } from '../api'
-import type { Document, Field, ScatterData } from '../api'
+import type { Document, Field, FieldFilter, ScatterData } from '../api'
 import { useDocumentNotes } from '../hooks/useDocumentNotes'
 import { DocumentView } from './DocumentView'
+import { FieldFilters } from './FieldFilters'
 import { ScatterPlot } from './ScatterPlot'
 
 type Mode = 'point2d' | 'pair'
 
 export function ScatterView() {
-  // The full field list, for the DocumentView detail pane (mirrors TabularView).
+  // The full field list, for the DocumentView detail pane (mirrors TabularView) and
+  // for the filter controls (which aren't limited to the plottable fields below).
   const [fields, setFields] = useState<Field[] | null>(null)
   // Only the point_2d/score fields, for the mode/field selector controls.
   const [scatterFields, setScatterFields] = useState<Field[]>([])
@@ -28,6 +30,9 @@ export function ScatterView() {
   const [xField, setXField] = useState<string | null>(null)
   const [yField, setYField] = useState<string | null>(null)
   const [colorField, setColorField] = useState<string | null>(null)
+  // Independent from TabularView's filter state — narrowing the scatterplot doesn't
+  // affect the table, and vice versa.
+  const [filters, setFilters] = useState<FieldFilter[]>([])
   const [data, setData] = useState<ScatterData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)
@@ -64,16 +69,17 @@ export function ScatterView() {
   // Refetch points whenever the active selection changes.
   useEffect(() => {
     const colorFieldQuery = colorField ? { colorField } : {}
+    const filtersQuery = filters.length > 0 ? { filters } : {}
     if (mode === 'point2d' && pointField) {
-      fetchScatter({ field: pointField, ...colorFieldQuery })
+      fetchScatter({ field: pointField, ...colorFieldQuery, ...filtersQuery })
         .then(setData)
         .catch((err: Error) => setError(err.message))
     } else if (mode === 'pair' && xField && yField) {
-      fetchScatter({ xField, yField, ...colorFieldQuery })
+      fetchScatter({ xField, yField, ...colorFieldQuery, ...filtersQuery })
         .then(setData)
         .catch((err: Error) => setError(err.message))
     }
-  }, [mode, pointField, xField, yField, colorField])
+  }, [mode, pointField, xField, yField, colorField, filters])
 
   const handleSelect = (documentId: string) => {
     fetchDocument(documentId)
@@ -156,6 +162,11 @@ export function ScatterView() {
                   />
                 )}
               </Group>
+              <FieldFilters
+                fields={fields}
+                filters={filters}
+                onChange={setFilters}
+              />
               {!data && <Loader />}
               {data && (
                 <ScatterPlot

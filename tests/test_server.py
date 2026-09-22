@@ -1,3 +1,6 @@
+import datetime as dt
+import json
+
 from fastapi.testclient import TestClient
 
 import sourcetext.db as db
@@ -21,16 +24,39 @@ def _client(tmp_path) -> TestClient:
     return TestClient(app)
 
 
+def _client_with_filter_fields(tmp_path) -> TestClient:
+    """A separate dataset (not `_client`'s) adding free_text and all three temporal
+    granularities, for filter tests that need them."""
+    create_session = db.get_sessionmaker(f"duckdb:///{tmp_path / 'filters.duckdb'}")
+    with create_session() as session:
+        ids = [f"doc{i}" for i in range(3)]
+        db.add_documents(session, ids, ["first", "second", "third"])
+        db.add_free_text(session, "editor_note", ids, ["needs review", "looks good", "needs review too"])
+        db.add_temporal_years(session, "pub_year", ids, [2020, 2021, 2022])
+        db.add_temporal_dates(
+            session, "pub_date", ids, [dt.date(2020, 1, 1), dt.date(2021, 6, 15), dt.date(2022, 12, 31)]
+        )
+        db.add_temporal_datetimes(
+            session,
+            "created_at",
+            ids,
+            [dt.datetime(2020, 1, 1, 10, 0), dt.datetime(2021, 6, 15, 12, 30), dt.datetime(2022, 12, 31, 23, 59)],
+        )
+        session.commit()
+    app.state.db_sessionmaker = create_session
+    return TestClient(app)
+
+
 def test_tabular_route_returns_fields_and_values(tmp_path):
     body = _client(tmp_path).get("/api/documents/tabular").json()
 
     assert body["total"] == 3
     assert body["fields"] == [
-        {"name": "predictions", "type": "label"},
-        {"name": "confidence", "type": "score"},
-        {"name": "readability", "type": "score"},
-        {"name": "topic", "type": "group"},
-        {"name": "embedding", "type": "point_2d"},
+        {"name": "predictions", "type": "label", "values": ["a", "b"], "min": None, "max": None},
+        {"name": "confidence", "type": "score", "values": None, "min": 0.1, "max": 0.3},
+        {"name": "readability", "type": "score", "values": None, "min": 50.0, "max": 70.0},
+        {"name": "topic", "type": "group", "values": ["politics", "weather"], "min": None, "max": None},
+        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None},
     ]
     assert [d["id"] for d in body["documents"]] == ["doc0", "doc1", "doc2"]
     assert body["documents"][1] == {
@@ -81,15 +107,155 @@ def test_tabular_route_rejects_unknown_sort_field(tmp_path):
     assert response.status_code == 400
 
 
+def test_tabular_route_filters_by_label_in(tmp_path):
+    body = (
+        _client(tmp_path)
+        .get(
+            "/api/documents/tabular",
+            params={"filters": json.dumps([{"field": "predictions", "op": "in", "values": ["a"]}])},
+        )
+        .json()
+    )
+
+    assert {d["id"] for d in body["documents"]} == {"doc0", "doc2"}
+    assert body["total"] == 2
+
+
+def test_tabular_route_filters_by_score_range(tmp_path):
+    body = (
+        _client(tmp_path)
+        .get(
+            "/api/documents/tabular",
+            params={"filters": json.dumps([{"field": "confidence", "op": "range", "min": 0.2}])},
+        )
+        .json()
+    )
+
+    assert {d["id"] for d in body["documents"]} == {"doc1", "doc2"}
+
+
+def test_tabular_route_filters_by_free_text_contains(tmp_path):
+    body = (
+        _client_with_filter_fields(tmp_path)
+        .get(
+            "/api/documents/tabular",
+            params={"filters": json.dumps([{"field": "editor_note", "op": "contains", "text": "needs"}])},
+        )
+        .json()
+    )
+
+    assert {d["id"] for d in body["documents"]} == {"doc0", "doc2"}
+
+
+def test_tabular_route_filters_by_temporal_year_range(tmp_path):
+    body = (
+        _client_with_filter_fields(tmp_path)
+        .get(
+            "/api/documents/tabular",
+            params={"filters": json.dumps([{"field": "pub_year", "op": "range", "min": 2021}])},
+        )
+        .json()
+    )
+
+    assert {d["id"] for d in body["documents"]} == {"doc1", "doc2"}
+
+
+def test_tabular_route_filters_by_temporal_date_range(tmp_path):
+    body = (
+        _client_with_filter_fields(tmp_path)
+        .get(
+            "/api/documents/tabular",
+            params={"filters": json.dumps([{"field": "pub_date", "op": "range", "max": "2021-12-31"}])},
+        )
+        .json()
+    )
+
+    assert {d["id"] for d in body["documents"]} == {"doc0", "doc1"}
+
+
+def test_tabular_route_filters_by_temporal_datetime_range(tmp_path):
+    body = (
+        _client_with_filter_fields(tmp_path)
+        .get(
+            "/api/documents/tabular",
+            params={"filters": json.dumps([{"field": "created_at", "op": "range", "min": "2021-01-01T00:00:00"}])},
+        )
+        .json()
+    )
+
+    assert {d["id"] for d in body["documents"]} == {"doc1", "doc2"}
+
+
+def test_tabular_route_combines_multiple_filters(tmp_path):
+    body = (
+        _client(tmp_path)
+        .get(
+            "/api/documents/tabular",
+            params={
+                "filters": json.dumps(
+                    [
+                        {"field": "predictions", "op": "in", "values": ["a"]},
+                        {"field": "confidence", "op": "range", "min": 0.2},
+                    ]
+                )
+            },
+        )
+        .json()
+    )
+
+    assert {d["id"] for d in body["documents"]} == {"doc2"}
+
+
+def test_tabular_route_filter_rejects_unknown_field(tmp_path):
+    response = _client(tmp_path).get(
+        "/api/documents/tabular",
+        params={"filters": json.dumps([{"field": "nope", "op": "in", "values": ["a"]}])},
+    )
+    assert response.status_code == 400
+
+
+def test_tabular_route_filter_rejects_op_type_mismatch(tmp_path):
+    response = _client(tmp_path).get(
+        "/api/documents/tabular",
+        params={"filters": json.dumps([{"field": "confidence", "op": "in", "values": ["0.1"]}])},
+    )
+    assert response.status_code == 400
+
+
+def test_fields_route_includes_filter_metadata(tmp_path):
+    body = _client(tmp_path).get("/api/documents/fields").json()
+
+    fields = {f["name"]: f for f in body["fields"]}
+    assert fields["predictions"]["values"] == ["a", "b"]
+    assert fields["confidence"]["min"] == 0.1
+    assert fields["confidence"]["max"] == 0.3
+
+
+def test_scatter_route_filters_by_extra_field(tmp_path):
+    body = (
+        _client(tmp_path)
+        .get(
+            "/api/documents/scatter",
+            params={
+                "field": "embedding",
+                "filters": json.dumps([{"field": "predictions", "op": "in", "values": ["b"]}]),
+            },
+        )
+        .json()
+    )
+
+    assert {p["documentId"] for p in body["points"]} == {"doc1"}
+
+
 def test_scatter_route_lists_fields_with_no_query_params(tmp_path):
     body = _client(tmp_path).get("/api/documents/scatter").json()
 
     assert body["points"] == []
     assert body["fields"] == [
-        {"name": "embedding", "type": "point_2d"},
-        {"name": "confidence", "type": "score"},
-        {"name": "readability", "type": "score"},
-        {"name": "topic", "type": "group"},
+        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None},
+        {"name": "confidence", "type": "score", "values": None, "min": None, "max": None},
+        {"name": "readability", "type": "score", "values": None, "min": None, "max": None},
+        {"name": "topic", "type": "group", "values": None, "min": None, "max": None},
     ]
 
 
@@ -145,11 +311,11 @@ def test_fields_route_returns_full_field_list(tmp_path):
     body = _client(tmp_path).get("/api/documents/fields").json()
 
     assert body["fields"] == [
-        {"name": "predictions", "type": "label"},
-        {"name": "confidence", "type": "score"},
-        {"name": "readability", "type": "score"},
-        {"name": "topic", "type": "group"},
-        {"name": "embedding", "type": "point_2d"},
+        {"name": "predictions", "type": "label", "values": ["a", "b"], "min": None, "max": None},
+        {"name": "confidence", "type": "score", "values": None, "min": 0.1, "max": 0.3},
+        {"name": "readability", "type": "score", "values": None, "min": 50.0, "max": 70.0},
+        {"name": "topic", "type": "group", "values": ["politics", "weather"], "min": None, "max": None},
+        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None},
     ]
 
 

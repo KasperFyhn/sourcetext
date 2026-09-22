@@ -15,6 +15,7 @@ from sourcetext.db.population import (
 )
 from sourcetext.db.queries import (
     DocumentRow,
+    FieldFilter,
     FieldInfo,
     ScatterPointRow,
     count_documents,
@@ -28,6 +29,7 @@ from sourcetext.db.queries import (
 
 __all__ = [
     "DocumentRow",
+    "FieldFilter",
     "FieldInfo",
     "ScatterPointRow",
     "count_documents",

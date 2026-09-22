@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from fastapi_camelcase import CamelModel
 
@@ -6,6 +6,18 @@ from fastapi_camelcase import CamelModel
 class FieldOut(CamelModel):
     name: str
     type: str
+    values: list[Any] | None = None
+    min: Any | None = None
+    max: Any | None = None
+
+
+class FieldFilterIn(CamelModel):
+    field: str
+    op: Literal["in", "range", "contains"]
+    values: list[str] | None = None
+    min: float | str | None = None
+    max: float | str | None = None
+    text: str | None = None
 
 
 class DocumentOut(CamelModel):

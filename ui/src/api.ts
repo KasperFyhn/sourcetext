@@ -1,6 +1,31 @@
 export interface Field {
   name: string
-  type: 'label' | 'score' | 'group' | 'temporal' | 'free_text' | 'point_2d'
+  type:
+    | 'label'
+    | 'score'
+    | 'group'
+    | 'temporal_year'
+    | 'temporal_date'
+    | 'temporal_datetime'
+    | 'free_text'
+    | 'point_2d'
+  // Filter metadata: distinct values for label/group fields (an "in" filter's
+  // candidates), or the min/max bound for score/temporal fields (a "range"
+  // filter's domain). Temporal bounds are ISO date/datetime strings.
+  values?: (string | number)[] | null
+  min?: number | string | null
+  max?: number | string | null
+}
+
+export type FilterOp = 'in' | 'range' | 'contains'
+
+export interface FieldFilter {
+  field: string
+  op: FilterOp
+  values?: string[]
+  min?: number | string
+  max?: number | string
+  text?: string
 }
 
 export type FieldValue = string | number | [number, number] | null
@@ -30,6 +55,7 @@ export interface Sort {
 export async function fetchTabularDocuments(
   page: number,
   sort: Sort | null = null,
+  filters: FieldFilter[] = [],
 ): Promise<DocumentsPage> {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
@@ -38,6 +64,9 @@ export async function fetchTabularDocuments(
   if (sort) {
     params.set('sortField', sort.field)
     params.set('sortDir', sort.dir)
+  }
+  if (filters.length > 0) {
+    params.set('filters', JSON.stringify(filters))
   }
   const res = await fetch(`/api/documents/tabular?${params}`)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -59,15 +88,19 @@ export interface ScatterData {
 
 export type ScatterQuery = (
   { field: string } | { xField: string; yField: string } | Record<string, never>
-) & { colorField?: string }
+) & { colorField?: string; filters?: FieldFilter[] }
 
 export async function fetchScatter(query: ScatterQuery): Promise<ScatterData> {
-  const entries = Object.entries(query).filter(
+  const { filters, ...rest } = query
+  const entries = Object.entries(rest).filter(
     ([, value]) => value !== undefined,
   )
   const params = new URLSearchParams(
     Object.fromEntries(entries) as Record<string, string>,
   )
+  if (filters && filters.length > 0) {
+    params.set('filters', JSON.stringify(filters))
+  }
   const res = await fetch(`/api/documents/scatter?${params}`)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json() as Promise<ScatterData>
