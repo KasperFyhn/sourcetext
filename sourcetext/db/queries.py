@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import func, literal_column, select
+from sqlalchemy import func, literal_column, nulls_last, select
 from sqlalchemy.orm import Session
 
 from sourcetext.db.schema import (
@@ -106,9 +106,47 @@ def _populate_values_and_notes(session: Session, rows: dict[str, DocumentRow]) -
         rows[document_id].note = text
 
 
-def list_documents(session: Session, limit: int = 50, offset: int = 0) -> list[DocumentRow]:
-    """A page of documents (in insertion order) with their scalar field values."""
-    stmt = select(Document).order_by(literal_column("rowid")).limit(limit).offset(offset)
+def _scalar_table_for_field(session: Session, field_name: str):
+    """The `_SCALAR_TABLES` table holding values for `field_name`, or None if it
+    names no scalar field (unknown, or a non-scalar type like `point_2d`)."""
+    for _, table in _SCALAR_TABLES:
+        exists = session.execute(select(table.id).where(table.field_name == field_name).limit(1)).first()
+        if exists:
+            return table
+    return None
+
+
+def list_documents(
+    session: Session,
+    limit: int = 50,
+    offset: int = 0,
+    sort_field: str | None = None,
+    sort_desc: bool = False,
+) -> list[DocumentRow]:
+    """A page of documents with their scalar field values. In insertion order by
+    default; pass `sort_field` (`"id"`, `"text"`, or any scalar field name) to
+    order by that instead. Documents missing `sort_field`'s value sort last
+    regardless of `sort_desc`. Raises ValueError if `sort_field` names neither
+    `"id"`/`"text"` nor a known scalar field (e.g. a `point_2d` field, which has
+    no single orderable value)."""
+    if sort_field is None:
+        stmt = select(Document).order_by(literal_column("rowid"))
+    elif sort_field == "id":
+        stmt = select(Document).order_by(Document.id.desc() if sort_desc else Document.id)
+    elif sort_field == "text":
+        stmt = select(Document).order_by(Document.text.desc() if sort_desc else Document.text)
+    else:
+        table = _scalar_table_for_field(session, sort_field)
+        if table is None:
+            raise ValueError(f"{sort_field!r} is not a known sortable field.")
+        values = select(table.document_id, table.value).where(table.field_name == sort_field).subquery()
+        order_col = values.c.value.desc() if sort_desc else values.c.value
+        stmt = (
+            select(Document)
+            .outerjoin(values, values.c.document_id == Document.id)
+            .order_by(nulls_last(order_col), literal_column("rowid"))
+        )
+    stmt = stmt.limit(limit).offset(offset)
     rows = {doc.id: DocumentRow(doc.id, doc.text, {}) for doc in session.execute(stmt).scalars()}
     _populate_values_and_notes(session, rows)
     return list(rows.values())

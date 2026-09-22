@@ -20,13 +20,25 @@ export interface DocumentsPage {
 
 export const PAGE_SIZE = 50
 
+export type SortDir = 'asc' | 'desc'
+
+export interface Sort {
+  field: string
+  dir: SortDir
+}
+
 export async function fetchTabularDocuments(
   page: number,
+  sort: Sort | null = null,
 ): Promise<DocumentsPage> {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
     offset: String((page - 1) * PAGE_SIZE),
   })
+  if (sort) {
+    params.set('sortField', sort.field)
+    params.set('sortDir', sort.dir)
+  }
   const res = await fetch(`/api/documents/tabular?${params}`)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json() as Promise<DocumentsPage>

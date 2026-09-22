@@ -2,13 +2,14 @@ import { Alert, Box, Flex, Loader, Pagination, Stack } from '@mantine/core'
 import { useEffect, useState } from 'react'
 
 import { fetchTabularDocuments, PAGE_SIZE } from '../api'
-import type { Document, DocumentsPage } from '../api'
+import type { Document, DocumentsPage, Sort } from '../api'
 import { useDocumentNotes } from '../hooks/useDocumentNotes'
 import { DocumentTable } from './DocumentTable'
 import { DocumentView } from './DocumentView'
 
 export function TabularView() {
   const [page, setPage] = useState(1)
+  const [sort, setSort] = useState<Sort | null>(null)
   const [data, setData] = useState<DocumentsPage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)
@@ -19,7 +20,7 @@ export function TabularView() {
 
   useEffect(() => {
     let stale = false
-    fetchTabularDocuments(page)
+    fetchTabularDocuments(page, sort)
       .then((result) => {
         if (stale) return
         setData(result)
@@ -29,7 +30,16 @@ export function TabularView() {
     return () => {
       stale = true
     }
-  }, [page])
+  }, [page, sort])
+
+  const handleSort = (field: string) => {
+    setSort((current) => {
+      if (current?.field !== field) return { field, dir: 'asc' }
+      if (current.dir === 'asc') return { field, dir: 'desc' }
+      return null
+    })
+    setPage(1)
+  }
 
   const fields = data?.fields ?? []
 
@@ -50,6 +60,8 @@ export function TabularView() {
                 documents={data.documents}
                 selectedId={selected?.id ?? null}
                 onSelect={setSelected}
+                sort={sort}
+                onSort={handleSort}
               />
               <Pagination
                 value={page}

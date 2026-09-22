@@ -48,6 +48,39 @@ def test_tabular_route_paginates(tmp_path):
     assert [d["id"] for d in body["documents"]] == ["doc2"]
 
 
+def test_tabular_route_sorts_by_id_desc(tmp_path):
+    body = _client(tmp_path).get("/api/documents/tabular", params={"sortField": "id", "sortDir": "desc"}).json()
+
+    assert [d["id"] for d in body["documents"]] == ["doc2", "doc1", "doc0"]
+
+
+def test_tabular_route_sorts_by_score_field(tmp_path):
+    body = _client(tmp_path).get("/api/documents/tabular", params={"sortField": "confidence", "sortDir": "desc"}).json()
+
+    assert [d["id"] for d in body["documents"]] == ["doc2", "doc1", "doc0"]
+
+
+def test_tabular_route_sort_puts_missing_values_last(tmp_path):
+    # doc1's "readability" is None regardless of ascending or descending sort direction.
+    client = _client(tmp_path)
+
+    body = client.get("/api/documents/tabular", params={"sortField": "readability"}).json()
+    assert [d["id"] for d in body["documents"]] == ["doc0", "doc2", "doc1"]
+
+    body = client.get("/api/documents/tabular", params={"sortField": "readability", "sortDir": "desc"}).json()
+    assert [d["id"] for d in body["documents"]] == ["doc2", "doc0", "doc1"]
+
+
+def test_tabular_route_rejects_unsortable_field(tmp_path):
+    response = _client(tmp_path).get("/api/documents/tabular", params={"sortField": "embedding"})
+    assert response.status_code == 400
+
+
+def test_tabular_route_rejects_unknown_sort_field(tmp_path):
+    response = _client(tmp_path).get("/api/documents/tabular", params={"sortField": "nope"})
+    assert response.status_code == 400
+
+
 def test_scatter_route_lists_fields_with_no_query_params(tmp_path):
     body = _client(tmp_path).get("/api/documents/scatter").json()
 

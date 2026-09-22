@@ -11,11 +11,21 @@ router = APIRouter(prefix="/api")
 # Must stay `async def`: in-memory DuckDB only shares data within the thread that
 # created the sessionmaker, and sync routes would run in FastAPI's threadpool.
 @router.get("/documents/tabular", response_model=DocumentsResponse)
-async def get_tabular_documents(request: Request, limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
+async def get_tabular_documents(
+    request: Request,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    sort_field: str | None = Query(None, alias="sortField"),
+    sort_dir: str = Query("asc", alias="sortDir", pattern="^(asc|desc)$"),
+):
     with request.app.state.db_sessionmaker() as session:
+        try:
+            documents = db.list_documents(session, limit, offset, sort_field=sort_field, sort_desc=sort_dir == "desc")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         return {
             "fields": [asdict(f) for f in db.list_fields(session)],
-            "documents": [asdict(d) for d in db.list_documents(session, limit, offset)],
+            "documents": [asdict(d) for d in documents],
             "total": db.count_documents(session),
         }
 
