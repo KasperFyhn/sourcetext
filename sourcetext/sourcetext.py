@@ -42,7 +42,7 @@ class SourceText:
         scores: ColumnName | Iterable[ScoreValue] | ScoreType | None = None,
         groups: ColumnName | Iterable[LabelValue] | LabelType | None = None,
         group_definitions: dict[str, Any] = None,
-        **fields: LabelType | ScoreType | GroupType | TemporalType,
+        **fields: LabelType | ScoreType | GroupType | TemporalType | Point2DType,
     ) -> None:
         self._validate_mode(texts, data)
 
