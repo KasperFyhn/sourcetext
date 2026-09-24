@@ -1,0 +1,22 @@
+name: "Build and Verify Package"
+description: "Build the sourcetext package with the bundled frontend into dist/"
+runs:
+  using: "composite"
+  steps:
+    - name: Set up uv with Python 3.12
+      uses: astral-sh/setup-uv@v7
+      with:
+        python-version: "3.12"
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: "22"
+        cache: npm
+        cache-dependency-path: ui/package-lock.json
+
+    # Builds the UI into sourcetext/server/static/, builds sdist + wheel, runs
+    # twine check, and asserts the UI made it into the wheel.
+    - name: Build and verify package
+      shell: bash
+      run: uv run --extra dev ./scripts/build.sh

@@ -1,0 +1,66 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_call:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+
+      # Pinned to match the ruff-pre-commit rev in .pre-commit-config.yaml.
+      - name: Lint Python
+        run: |
+          uvx ruff@0.16.8 check .
+          uvx ruff@0.16.8 format --check .
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Lint UI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run lint
+          npm run format:check
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      # No frontend build needed: the server tests don't run the app lifespan,
+      # which is what requires sourcetext/server/static/.
+      - name: Test with pytest
+        run: uv run --extra dev pytest
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/build-package
+
+      # Picked up by publish.yml, so what gets uploaded is exactly what CI verified.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

@@ -1,5 +1,11 @@
 # sourcetext
 
+Return to source text alongside NLP model output and record interpretive judgments in situ.
+
+```bash
+pip install sourcetext
+```
+
 ## Primary input types
 
 | Type           | Expected Data                                             | UI Treatment                                       | Use case(s)                                        | Accepts `definitions=` |
