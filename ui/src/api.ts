@@ -7,7 +7,7 @@ export interface Field {
     | 'temporal_year'
     | 'temporal_date'
     | 'temporal_datetime'
-    | 'free_text'
+    | 'text'
     | 'point_2d'
   // Filter metadata: distinct values for label/group fields (an "in" filter's
   // candidates), or the min/max bound for score/temporal fields (a "range"

@@ -1,7 +1,6 @@
 from sourcetext.db.engine import get_sessionmaker
 from sourcetext.db.population import (
     add_documents,
-    add_free_text,
     add_group_definitions,
     add_groups,
     add_labels,
@@ -11,6 +10,7 @@ from sourcetext.db.population import (
     add_temporal_dates,
     add_temporal_datetimes,
     add_temporal_years,
+    add_text,
     set_note,
 )
 from sourcetext.db.queries import (
@@ -41,7 +41,7 @@ __all__ = [
     "list_scatter_fields",
     "get_sessionmaker",
     "add_documents",
-    "add_free_text",
+    "add_text",
     "add_group_definitions",
     "add_groups",
     "add_labels",

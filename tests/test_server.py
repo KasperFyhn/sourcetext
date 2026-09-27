@@ -25,13 +25,13 @@ def _client(tmp_path) -> TestClient:
 
 
 def _client_with_filter_fields(tmp_path) -> TestClient:
-    """A separate dataset (not `_client`'s) adding free_text and all three temporal
+    """A separate dataset (not `_client`'s) adding text and all three temporal
     granularities, for filter tests that need them."""
     create_session = db.get_sessionmaker(f"duckdb:///{tmp_path / 'filters.duckdb'}")
     with create_session() as session:
         ids = [f"doc{i}" for i in range(3)]
         db.add_documents(session, ids, ["first", "second", "third"])
-        db.add_free_text(session, "editor_note", ids, ["needs review", "looks good", "needs review too"])
+        db.add_text(session, "editor_note", ids, ["needs review", "looks good", "needs review too"])
         db.add_temporal_years(session, "pub_year", ids, [2020, 2021, 2022])
         db.add_temporal_dates(
             session, "pub_date", ids, [dt.date(2020, 1, 1), dt.date(2021, 6, 15), dt.date(2022, 12, 31)]
@@ -134,7 +134,7 @@ def test_tabular_route_filters_by_score_range(tmp_path):
     assert {d["id"] for d in body["documents"]} == {"doc1", "doc2"}
 
 
-def test_tabular_route_filters_by_free_text_contains(tmp_path):
+def test_tabular_route_filters_by_text_contains(tmp_path):
     body = (
         _client_with_filter_fields(tmp_path)
         .get(

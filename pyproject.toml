@@ -27,6 +27,7 @@ classifiers = [
     "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
+    "numpy>=1.22",
     "pandas>=2.0",
     "duckdb>=1.0",
     "sqlalchemy>=2.0",

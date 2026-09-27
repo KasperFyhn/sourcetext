@@ -3,7 +3,8 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from sqlalchemy import JSON, Date, DateTime, Double, ForeignKey, Integer, Sequence, String, Text
+from sqlalchemy import JSON, Date, DateTime, Double, ForeignKey, Integer, Sequence, String
+from sqlalchemy import Text as SqlAlchemyText
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column, relationship
 
 
@@ -15,7 +16,7 @@ class Document(Base):
     __tablename__ = "documents"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
+    text: Mapped[str] = mapped_column(SqlAlchemyText, nullable=False)
 
     labels: Mapped[list["Label"]] = relationship(back_populates="document", cascade="all, delete-orphan")
     scores: Mapped[list["Score"]] = relationship(back_populates="document", cascade="all, delete-orphan")
@@ -26,7 +27,7 @@ class Document(Base):
     temporal_datetimes: Mapped[list["TemporalDatetime"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
-    free_texts: Mapped[list["FreeText"]] = relationship(back_populates="document", cascade="all, delete-orphan")
+    text_fields: Mapped[list["Text"]] = relationship(back_populates="document", cascade="all, delete-orphan")
     points_2d: Mapped[list["Point2D"]] = relationship(back_populates="document", cascade="all, delete-orphan")
 
 
@@ -111,7 +112,7 @@ class Span(Base):
 class TemporalYear(_ScalarField):
     """Temporal fields whose underlying Python value is a bare int (year-level)."""
 
-    __tablename__ = "temporal_year"
+    __tablename__ = "temporal_years"
 
     value: Mapped[int] = mapped_column(Integer, nullable=False)
 
@@ -121,7 +122,7 @@ class TemporalYear(_ScalarField):
 class TemporalDate(_ScalarField):
     """Temporal fields whose underlying Python value is a datetime.date."""
 
-    __tablename__ = "temporal_date"
+    __tablename__ = "temporal_dates"
 
     value: Mapped[dt.date] = mapped_column(Date, nullable=False)
 
@@ -131,21 +132,21 @@ class TemporalDate(_ScalarField):
 class TemporalDatetime(_ScalarField):
     """Temporal fields whose underlying Python value is a datetime.datetime."""
 
-    __tablename__ = "temporal_datetime"
+    __tablename__ = "temporal_datetimes"
 
     value: Mapped[dt.datetime] = mapped_column(DateTime, nullable=False)
 
     document: Mapped[Document] = relationship(back_populates="temporal_datetimes")
 
 
-class FreeText(_ScalarField):
+class Text(_ScalarField):
     """TextType fields, e.g. an editorial-note column."""
 
-    __tablename__ = "free_text"
+    __tablename__ = "texts"
 
-    value: Mapped[str] = mapped_column(Text, nullable=False)
+    value: Mapped[str] = mapped_column(SqlAlchemyText, nullable=False)
 
-    document: Mapped[Document] = relationship(back_populates="free_texts")
+    document: Mapped[Document] = relationship(back_populates="text_fields")
 
 
 class Point2D(Base):
@@ -165,9 +166,9 @@ class Point2D(Base):
 
 class Note(Base):
     """A researcher's free-form interpretive note on a document. Written from the
-    UI, not part of the typed-field system (and not a `FreeTextType` field)."""
+    UI, not part of the typed-field system (and not a `TextType` field)."""
 
     __tablename__ = "notes"
 
     document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), primary_key=True)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
+    text: Mapped[str] = mapped_column(SqlAlchemyText, nullable=False)

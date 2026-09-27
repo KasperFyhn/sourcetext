@@ -1,12 +1,12 @@
 import datetime as dt
 
+import numpy as np
 import pandas as pd
 import pytest
 
-from sourcetext import FreeTextType, LabelType, Point2DType, SourceText, SpanType, TemporalType
+from sourcetext import LabelType, Point2DType, SourceText, SpanType, TemporalType, TextType
 from sourcetext.db.schema import (
     Document,
-    FreeText,
     Group,
     GroupDefinition,
     Label,
@@ -16,6 +16,7 @@ from sourcetext.db.schema import (
     TemporalDate,
     TemporalDatetime,
     TemporalYear,
+    Text,
 )
 
 TEXTS = ["The cat sat.", "A dog ran.", "Birds fly south."]
@@ -123,9 +124,9 @@ def test_span_type_field():
     assert [r.document_id for r in rows] == ["0", "2"]
 
 
-def test_free_text_field():
-    st = SourceText(TEXTS, editorial_note=FreeTextType(["n1", "n2", "n3"]))
-    rows = st._session.query(FreeText).order_by(FreeText.id).all()
+def test_text_field():
+    st = SourceText(TEXTS, editorial_note=TextType(["n1", "n2", "n3"]))
+    rows = st._session.query(Text).order_by(Text.id).all()
     assert [r.value for r in rows] == ["n1", "n2", "n3"]
 
 
@@ -151,3 +152,40 @@ def test_point_2d_field():
     st = SourceText(TEXTS, embedding=Point2DType([(0.1, 0.2), [1, 2], None]))
     rows = st._session.query(Point2D).order_by(Point2D.id).all()
     assert [(r.document_id, r.x, r.y) for r in rows] == [("0", 0.1, 0.2), ("1", 1.0, 2.0)]
+
+
+def test_numpy_inputs_are_stored_as_plain_python():
+    # The unconverted-numpy failure cases: DuckDB can't bind numpy scalars in the
+    # columns db.population doesn't cast (years, span offsets), and numpy values
+    # aren't JSON-serializable (group definitions).
+    st = SourceText(
+        TEXTS,
+        ids=np.array([10, 11, 12]),
+        scores=np.array([0.1, 0.2, 0.3], dtype=np.float32),
+        groups=np.array([0, 1, 0]),
+        group_definitions={np.int64(0): {"weights": np.array([0.5, 0.25], dtype=np.float32)}},
+        year=TemporalType(np.array([1850, 1851, 1852])),
+        embedding=Point2DType(np.zeros((3, 2), dtype=np.float32)),
+        entities=SpanType([[{"start": np.int64(0), "end": np.int64(3), "label": np.str_("X")}], [], []]),
+    )
+    assert [d.id for d in st._session.query(Document).order_by(Document.id).all()] == ["10", "11", "12"]
+    assert [r.value for r in st._session.query(TemporalYear).order_by(TemporalYear.id).all()] == [1850, 1851, 1852]
+    assert [(s.span_start, s.span_end) for s in st._session.query(Span).all()] == [(0, 3)]
+    assert st._session.query(GroupDefinition).one().definition == {"weights": [0.5, 0.25]}
+    assert len(st._session.query(Score).all()) == 3
+    assert len(st._session.query(Point2D).all()) == 3
+
+
+def test_dataframe_missing_values_are_skipped():
+    df = pd.DataFrame(
+        {
+            "text": TEXTS,
+            "pred": ["a", None, "b"],
+            "conf": [0.9, float("nan"), 0.7],
+            "date": pd.to_datetime(["1850-01-01", None, "1852-01-01"]),
+        }
+    )
+    st = SourceText(data=df, texts="text", predictions="pred", predictions_confidence="conf", date=TemporalType("date"))
+    assert len(st._session.query(Label).all()) == 2
+    assert len(st._session.query(Score).all()) == 2
+    assert len(st._session.query(TemporalDatetime).all()) == 2

@@ -1,15 +1,18 @@
 import datetime as dt
 
+import numpy as np
+import pandas as pd
 import pytest
 
 from sourcetext.types import (
-    FreeTextType,
     GroupType,
     LabelType,
     Point2DType,
     ScoreType,
     SpanType,
     TemporalType,
+    TextType,
+    to_python_value,
 )
 
 
@@ -78,8 +81,8 @@ def test_temporal_rejects_mixed_granularity():
         TemporalType([2020, dt.date(2021, 1, 1)]).granularity()
 
 
-def test_free_text_type_resolves():
-    assert FreeTextType(["a note"]).resolve() == ["a note"]
+def test_text_type_resolves():
+    assert TextType(["a note"]).resolve() == ["a note"]
 
 
 def test_group_type_definitions_can_be_rich_json_objects():
@@ -106,3 +109,68 @@ def test_point2d_type_rejects_non_numeric_coordinates():
 def test_point2d_type_rejects_non_sequence_value():
     with pytest.raises(TypeError):
         Point2DType(["not-a-point"]).resolve()
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (np.int64(3), 3),
+        (np.float32(0.5), 0.5),
+        (np.bool_(True), True),
+        (np.str_("a"), "a"),
+        (np.datetime64("1850-01-01"), dt.date(1850, 1, 1)),
+        (np.datetime64("1850-01-01T12:30:00.000000000"), dt.datetime(1850, 1, 1, 12, 30)),
+        (pd.Timestamp("1850-01-01 12:30"), dt.datetime(1850, 1, 1, 12, 30)),
+        (float("nan"), None),
+        (np.float64("nan"), None),
+        (np.datetime64("NaT", "ns"), None),
+        (pd.NaT, None),
+        (pd.NA, None),
+        (np.array([1, 2]), [1, 2]),
+        ((np.float32(1), np.float32(2)), (1.0, 2.0)),
+        ({np.int64(0): {"w": [np.float32(0.5)]}}, {0: {"w": [0.5]}}),
+    ],
+)
+def test_to_python_converts_to_plain_python(value, expected):
+    result = to_python_value(value)
+    assert result == expected
+    assert type(result) is type(expected)
+
+
+def test_to_python_leaves_plain_python_untouched():
+    values = [1, 0.5, "a", True, dt.date(1850, 1, 1), None, [1, (2, 3)], {"k": "v"}]
+    assert to_python_value(values) == values
+
+
+def test_score_type_accepts_numpy_array():
+    values = ScoreType(np.array([0.1, 0.2], dtype=np.float32)).resolve()
+    assert all(type(v) is float for v in values)
+
+
+def test_group_type_accepts_numpy_ints_and_definitions():
+    field = GroupType(np.array([0, 1]), definitions={np.int64(0): "zero"})
+    assert field.resolve() == [0, 1]
+    assert field.definitions == {0: "zero"}
+
+
+def test_point2d_type_accepts_2d_numpy_array():
+    assert Point2DType(np.array([[0.5, 1.5], [2.0, 3.0]], dtype=np.float32)).resolve() == [[0.5, 1.5], [2.0, 3.0]]
+
+
+def test_temporal_numpy_ints_are_years():
+    assert TemporalType(np.array([1850, 1851])).granularity() == "year"
+
+
+def test_temporal_nanosecond_datetime64_is_not_mistaken_for_years():
+    values = np.array(["1850-01-01T12:00", "1851-01-01T12:00"], dtype="datetime64[ns]")
+    assert TemporalType(values).granularity() == "datetime"
+
+
+def test_span_type_accepts_numpy_offsets():
+    spans = [[{"start": np.int64(0), "end": np.int64(3), "label": np.str_("X")}]]
+    assert SpanType(spans).resolve() == [[{"start": 0, "end": 3, "label": "X"}]]
+
+
+def test_label_type_treats_nan_from_dataframe_as_missing():
+    df = pd.DataFrame({"label": ["a", None, "b"]})
+    assert LabelType("label").resolve(df) == ["a", None, "b"]

@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Python library for DH/NLP researchers to review model output (classification,
 NER, sentiment, clustering, etc.) alongside source text and record interpretive
-judgments in situ. See `sourcetext-spec.md` for the full design spec (type
-system, internal schema, planned serving layer) and `README.md` for usage
-examples — both are kept in sync with the code and are the right place to
-check "why" a design choice was made before assuming it's arbitrary.
+judgments in situ. `README.md` is both the landing page (also rendered on PyPI, so
+links in it must be absolute GitHub URLs) and the user-facing documentation: its
+lower "Documentation" half is the API reference. Keep it in sync with the code,
+including its "Project status" list of what isn't built yet.
 
 ## Commands
 
@@ -46,7 +46,7 @@ must carry the UI too.
 ## Architecture
 
 Every field beyond the raw text is a **typed field** (`LabelType`, `ScoreType`,
-`GroupType`, `SpanType`, `TemporalType`, `FreeTextType`, `Point2DType`), and
+`GroupType`, `SpanType`, `TemporalType`, `TextType`, `Point2DType`), and
 each one is implemented identically across four files. Understanding one type
 end-to-end (e.g. grep for `Point2D`) is the fastest way to understand all of
 them:
@@ -86,10 +86,10 @@ them:
   code path — adding a new preset kwarg means wrapping it before the loop, not
   branching inside it.
 
-**Adding a new primary type** touches all four files plus both docs: a class
+**Adding a new primary type** touches all four files plus the README: a class
 in `types.py`, a table in `schema.py`, an `add_*` function in `db.py`, a
 dispatch branch in `sourcetext.py`'s loop, an export in `sourcetext/__init__.py`,
-and a row/table update in `sourcetext-spec.md` and `README.md`.
+and a row in the README's "Field types" table.
 
 **Server + UI (scaffold only)**: `SourceText.start_server()` runs the FastAPI app
 in `sourcetext/server/` via `BackgroundServer` (blocks in a plain script,
@@ -121,7 +121,6 @@ UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
-**Not yet implemented**: `SourceText.serve()`/`ServerHandle`, filtering and
-span rendering in the UI, and the sidecar-file persistence of notes (they
-currently live in the same DuckDB as the data) are in `sourcetext-spec.md` as
-target design but don't exist in code yet — don't assume they work.
+**Not yet implemented**: span rendering and group-definition display in the UI,
+and sidecar-file persistence of notes (they currently live in the same in-memory
+DuckDB as the data, so they're lost when the process exits) — don't assume they work.

@@ -3,6 +3,9 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any, ClassVar, Optional, TypeAlias, get_args
 
+import numpy as np
+import pandas as pd
+
 # The shape of a single value for each primary type — used both for the
 # public-facing signatures (e.g. SourceText's predictions=/gold=) and, via
 # get_args() below, as the one source of truth for each type's runtime
@@ -17,6 +20,40 @@ TemporalValue: TypeAlias = int | dt.date | dt.datetime
 Point2DValue: TypeAlias = tuple[float | int, float | int]
 
 
+def to_python_value(value: Any) -> Any:
+    """Recursively convert numpy/pandas values to plain Python equivalents, so that
+    validation and the DB layer only ever see plain Python types. Model outputs are
+    routinely numpy (np.float32 scores, np.int64 cluster ids, UMAP arrays), and
+    DuckDB can't bind numpy scalars, nor can they be JSON-serialized.
+
+    Missing-value markers (NaN, NaT, pd.NA) become None, matching how the rest of
+    sourcetext treats missing values.
+    """
+    if value is None or value is pd.NA or value is pd.NaT:
+        return None
+    if isinstance(value, np.datetime64):
+        # Handled before np.generic: .item() on a sub-microsecond unit (e.g. the
+        # default datetime64[ns]) returns an int, which would silently pass as a year.
+        if np.isnat(value):
+            return None
+        if np.datetime_data(value.dtype)[0] in ("Y", "M", "W", "D"):
+            return value.astype("datetime64[D]").item()
+        return pd.Timestamp(value).to_pydatetime()
+    if isinstance(value, pd.Timestamp):
+        return value.to_pydatetime()
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, float) and np.isnan(value):
+        return None
+    if isinstance(value, (np.ndarray, pd.Series, pd.Index, list)):
+        return [to_python_value(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(to_python_value(v) for v in value)
+    if isinstance(value, dict):
+        return {to_python_value(k): to_python_value(v) for k, v in value.items()}
+    return value
+
+
 def resolve_source(source: Any, data: Any, label: str) -> list:
     if isinstance(source, str):
         if data is None:
@@ -29,12 +66,12 @@ def resolve_source(source: Any, data: Any, label: str) -> list:
                 f'{label}("{source}") refers to a column not present in `data` '
                 f"(available columns: {list(data.columns)})."
             )
-        return list(data[source])
+        return [to_python_value(v) for v in data[source]]
     if source is None:
         raise TypeError(f"{label} requires a column name or an array of values, got None.")
     if isinstance(source, dict) or not hasattr(source, "__iter__"):
         raise TypeError(f"{label} expects a column name (str) or an array-like of values, got {type(source).__name__}.")
-    return list(source)
+    return [to_python_value(v) for v in source]
 
 
 class _PrimaryType:
@@ -55,7 +92,7 @@ class _PrimaryType:
                     f"{self.definition_types.__name__}, got {type(definitions).__name__}."
                 )
         self.source = source
-        self.definitions = definitions
+        self.definitions = to_python_value(definitions)
 
     def resolve(self, data: Any = None) -> list:
         values = resolve_source(self.source, data, type(self).__name__)
@@ -85,7 +122,7 @@ class IdType(_PrimaryType):
     value_types: ClassVar[tuple[type, ...]] = get_args(IdValue)
 
 
-class FreeTextType(_PrimaryType):
+class TextType(_PrimaryType):
     """User-supplied, read-only free-text metadata (e.g. an editorial note column).
     Not the interpretive-annotation field — that is owned by the served app itself.
     """

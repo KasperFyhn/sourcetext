@@ -8,7 +8,6 @@ import pandas as pd
 import sourcetext.db as db
 from sourcetext.server.backgroundserver import BackgroundServer
 from sourcetext.types import (
-    FreeTextType,
     GroupType,
     IdType,
     IdValue,
@@ -19,6 +18,7 @@ from sourcetext.types import (
     ScoreValue,
     SpanType,
     TemporalType,
+    TextType,
     _PrimaryType,
     resolve_source,
 )
@@ -108,8 +108,8 @@ class SourceText:
                 db.add_groups(self._session, field_name, doc_ids, values)
                 if source.definitions:
                     db.add_group_definitions(self._session, field_name, source.definitions)
-            elif isinstance(source, FreeTextType):
-                db.add_free_text(self._session, field_name, doc_ids, values)
+            elif isinstance(source, TextType):
+                db.add_text(self._session, field_name, doc_ids, values)
             elif isinstance(source, TemporalType):
                 granularity = source.granularity(data)
                 if granularity == "year":

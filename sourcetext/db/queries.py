@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from sourcetext.db.schema import (
     Document,
-    FreeText,
     Group,
     Label,
     Note,
@@ -18,6 +17,7 @@ from sourcetext.db.schema import (
     TemporalDate,
     TemporalDatetime,
     TemporalYear,
+    Text,
 )
 
 # Tables holding one scalar value per (document, field); enough for a tabular overview.
@@ -31,7 +31,7 @@ _SCALAR_TABLES = [
     ("temporal_year", TemporalYear),
     ("temporal_date", TemporalDate),
     ("temporal_datetime", TemporalDatetime),
-    ("free_text", FreeText),
+    ("text", Text),
 ]
 
 # Tables whose values are a discrete set, suitable for an "in" (membership) filter.
@@ -54,7 +54,7 @@ class FieldInfo:
     # Filter metadata: distinct values for label/group fields (an "in" filter's
     # candidates), or the min/max bound for score/temporal fields (a "range" filter's
     # domain). None for field types with no filter (point_2d) or that need neither
-    # (free_text, which filters by substring instead).
+    # (text, which filters by substring instead).
     values: list[Any] | None = None
     min: Any | None = None
     max: Any | None = None
@@ -212,7 +212,7 @@ def _apply_filters(session: Session, stmt, filters: list[FieldFilter] | None):
             if f.max is not None:
                 sub = sub.where(table.value <= coerce(f.max))
         elif f.op == "contains":
-            if table is not FreeText:
+            if table is not Text:
                 raise ValueError(f"{f.field!r} does not support a 'contains' filter.")
             if not f.text:
                 raise ValueError("A 'contains' filter requires non-empty `text`.")

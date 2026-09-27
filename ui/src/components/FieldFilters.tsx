@@ -317,7 +317,7 @@ function TemporalDatetimeFilter({ field, current, onChange }: ControlProps) {
   )
 }
 
-function FreeTextFilter({ field, current, onChange }: ControlProps) {
+function TextFilter({ field, current, onChange }: ControlProps) {
   const [text, setText] = useState(current?.text ?? '')
   const [debounced] = useDebouncedValue(text, 300)
 
@@ -406,7 +406,7 @@ export function FieldFilters({ fields, filters, onChange }: Props) {
             />
           )
         return (
-          <FreeTextFilter
+          <TextFilter
             key={field.name}
             field={field}
             current={current}
