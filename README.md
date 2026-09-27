@@ -34,6 +34,10 @@ st = SourceText(texts, predictions=predictions)
 st.start_server()  # then open http://localhost:8001
 ```
 
+And dive into the source text in a simple UI in your browser.
+
+![img.png](screenshot.png)
+
 In a script, `start_server()` blocks until you press Ctrl+C. In Jupyter it runs in
 the background, so you can keep working and call `st.stop_server()` when done.
 
@@ -288,7 +292,7 @@ frontend fit together are described in
 pip install -e ".[dev]"
 pre-commit install
 pytest
-./scripts/dev.sh classification   # API + hot-reloading UI on a mock dataset
+./scripts/dev.sh classification_simple   # API + hot-reloading UI on a mock dataset
 ```
 
 ## License
