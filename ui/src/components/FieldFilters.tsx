@@ -2,9 +2,9 @@ import {
   ActionIcon,
   Chip,
   Group,
+  Input,
   NumberInput,
   Stack,
-  Text,
   TextInput,
 } from '@mantine/core'
 import {
@@ -40,11 +40,6 @@ function setFieldFilter(
   return filter ? [...rest, filter] : rest
 }
 
-// Toggle chips rather than a MultiSelect: a MultiSelect's selected-value pills grow
-// the input (pushing the rest of the page down as you filter) and its placeholder
-// lingers as a visible "Any" tag alongside real selections. Chips have a fixed
-// footprint from the start — every option is always shown, just highlighted when
-// selected — so nothing shifts as the filter changes.
 function LabelOrGroupFilter({ field, current, onChange }: ControlProps) {
   const options = (field.values ?? []).map(String)
   return (
@@ -61,18 +56,15 @@ function LabelOrGroupFilter({ field, current, onChange }: ControlProps) {
         )
       }
     >
-      <Stack gap={4}>
-        <Text size="sm" fw={500}>
-          {field.name}
-        </Text>
-        <Group gap={6}>
+      <Input.Wrapper label={field.name}>
+        <Group gap={6} mih={36}>
           {options.map((option) => (
             <Chip key={option} value={option} size="xs" variant="outline">
               {option}
             </Chip>
           ))}
         </Group>
-      </Stack>
+      </Input.Wrapper>
     </Chip.Group>
   )
 }

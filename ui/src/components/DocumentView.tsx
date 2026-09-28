@@ -1,4 +1,4 @@
-import { Group, Stack, Text, Textarea, Title } from '@mantine/core'
+import { Flex, Group, Stack, Text, Textarea, Title } from '@mantine/core'
 
 import type { Document, Field } from '../api'
 import { FieldValueView } from './FieldValueView'
@@ -24,13 +24,18 @@ export function DocumentView({
   return (
     <Stack>
       <Title order={2}>Document {document.id}</Title>
-      <Group>
+      <Group align="stretch">
         {fields.map((field) => (
           <Stack key={field.name} gap={2}>
             <Text size="xs" c="dimmed">
               {field.name}
             </Text>
-            <FieldValueView field={field} value={document.values[field.name]} />
+            <Flex align="center" flex={1}>
+              <FieldValueView
+                field={field}
+                value={document.values[field.name]}
+              />
+            </Flex>
           </Stack>
         ))}
       </Group>
