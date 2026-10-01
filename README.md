@@ -9,7 +9,7 @@
 Sometimes, working with and understanding a text corpus requires more than your NLP models' output. It requires close reading of the source text: looking at the documents behind a prediction, a cluster, or an
 outlier score, and recording your interpretation as you go.
 
-sourcetext gives you that in one line of Python. Hand it your texts and
+sourcetext gives you that in three lines of Python code. Hand it your texts and
 your model's output (labels, scores, clusters, embeddings, dates), and it opens a
 local web app where you can browse, sort, filter and plot the documents, read each
 one in full, and attach notes to it.
