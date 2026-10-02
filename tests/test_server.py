@@ -255,6 +255,7 @@ def test_scatter_route_lists_fields_with_no_query_params(tmp_path):
         {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None},
         {"name": "confidence", "type": "score", "values": None, "min": None, "max": None},
         {"name": "readability", "type": "score", "values": None, "min": None, "max": None},
+        {"name": "predictions", "type": "label", "values": None, "min": None, "max": None},
         {"name": "topic", "type": "group", "values": None, "min": None, "max": None},
     ]
 
@@ -346,3 +347,79 @@ def test_note_is_saved_replaced_and_returned(tmp_path):
 
 def test_note_for_unknown_document_is_404(tmp_path):
     assert _client(tmp_path).put("/api/documents/nope/note", json={"text": "x"}).status_code == 404
+
+
+def test_scatter_route_colors_by_label_field(tmp_path):
+    body = (
+        _client(tmp_path)
+        .get("/api/documents/scatter", params={"field": "embedding", "colorField": "predictions"})
+        .json()
+    )
+
+    points = {p["documentId"]: p for p in body["points"]}
+    assert points["doc1"]["group"] == "b"
+
+
+def test_strip_route_returns_points_with_row_and_color(tmp_path):
+    body = (
+        _client(tmp_path)
+        .get("/api/documents/strip", params={"xField": "confidence", "rowField": "predictions", "colorField": "topic"})
+        .json()
+    )
+
+    points = {p["documentId"]: p for p in body["points"]}
+    assert points["doc0"] == {"documentId": "doc0", "x": 0.1, "text": "first", "row": "a", "color": "weather"}
+    assert points["doc2"]["color"] is None  # doc2 has no "topic" value; the join keeps the point anyway
+
+
+def test_strip_route_omits_documents_missing_x(tmp_path):
+    body = _client(tmp_path).get("/api/documents/strip", params={"xField": "readability", "rowField": "topic"}).json()
+
+    points = {p["documentId"]: p for p in body["points"]}
+    assert set(points) == {"doc0", "doc2"}  # doc1's readability was None
+    assert points["doc2"]["row"] is None  # doc2 has no "topic"; the point is kept anyway
+    assert all(p["color"] is None for p in body["points"])
+
+
+def test_strip_route_filters(tmp_path):
+    body = (
+        _client(tmp_path)
+        .get(
+            "/api/documents/strip",
+            params={
+                "xField": "confidence",
+                "rowField": "predictions",
+                "filters": json.dumps([{"field": "predictions", "op": "in", "values": ["a"]}]),
+            },
+        )
+        .json()
+    )
+
+    assert {p["documentId"] for p in body["points"]} == {"doc0", "doc2"}
+
+
+def test_strip_route_rejects_non_categorical_row_field(tmp_path):
+    response = _client(tmp_path).get("/api/documents/strip", params={"xField": "confidence", "rowField": "readability"})
+    assert response.status_code == 400
+
+
+def test_strip_route_requires_row_field(tmp_path):
+    response = _client(tmp_path).get("/api/documents/strip", params={"xField": "confidence"})
+    assert response.status_code == 422
+
+
+def test_crosstab_route_counts_value_pairs(tmp_path):
+    body = (
+        _client(tmp_path).get("/api/documents/crosstab", params={"rowField": "predictions", "colField": "topic"}).json()
+    )
+
+    cells = {(c["row"], c["col"]): c["count"] for c in body["cells"]}
+    # doc2 has a prediction but no topic, so it counts under a None column.
+    assert cells == {("a", "weather"): 1, ("b", "politics"): 1, ("a", None): 1}
+
+
+def test_crosstab_route_rejects_non_categorical_field(tmp_path):
+    response = _client(tmp_path).get(
+        "/api/documents/crosstab", params={"rowField": "predictions", "colField": "confidence"}
+    )
+    assert response.status_code == 400

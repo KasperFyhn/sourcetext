@@ -87,6 +87,15 @@ class ScatterPointRow:
     group: str | None = None
 
 
+@dataclass
+class StripPointRow:
+    document_id: str
+    x: float
+    text: str
+    row: str | None = None
+    color: str | None = None
+
+
 def _serialize(value: Any) -> Any:
     return value.isoformat() if hasattr(value, "isoformat") else value
 
@@ -140,11 +149,13 @@ def list_fields(session: Session) -> list[FieldInfo]:
     return fields
 
 
-def list_scatter_fields(session: Session) -> list[FieldInfo]:
-    """Every point_2d and score field name (the two types that fit on a scatterplot's
-    axes), plus every group field name (for optionally coloring points by group)."""
+def list_plot_fields(session: Session) -> list[FieldInfo]:
+    """Every field name that fits the plot view: point_2d fields (a ready-made
+    position), score fields (a numeric axis), and label and group fields (a
+    categorical axis, which turns the plot into a strip plot, or the point color)."""
     fields = [FieldInfo(name, "point_2d") for name in _field_names(session, Point2D)]
     fields += [FieldInfo(name, "score") for name in _field_names(session, Score)]
+    fields += [FieldInfo(name, "label") for name in _field_names(session, Label)]
     fields += [FieldInfo(name, "group") for name in _field_names(session, Group)]
     return fields
 
@@ -271,12 +282,16 @@ def get_document(session: Session, document_id: str) -> DocumentRow | None:
     return rows[document.id]
 
 
-def _group_value_subquery(group_field: str):
-    """A `(document_id, value)` subquery for one GroupType field, for an optional
-    outer join onto a scatter query — documents without a value for it just get
-    `group=None` rather than being dropped (unlike the x/y axis fields, a missing
-    group shouldn't hide the point)."""
-    return select(Group.document_id, Group.value).where(Group.field_name == group_field).subquery()
+def _category_value_subquery(session: Session, field_name: str):
+    """A `(document_id, value)` subquery for one label or group field, for an
+    optional outer join onto a plot query — documents without a value just get None
+    rather than being dropped (unlike a missing axis value, a missing color or
+    category shouldn't hide the point). Raises ValueError if `field_name` isn't a
+    label or group field."""
+    table = _scalar_table_for_field(session, field_name)
+    if table not in _IN_TABLES:
+        raise ValueError(f"{field_name!r} is not a label or group field.")
+    return select(table.document_id, table.value).where(table.field_name == field_name).subquery()
 
 
 def list_points_2d(
@@ -286,7 +301,7 @@ def list_points_2d(
     filters: list[FieldFilter] | None = None,
 ) -> list[ScatterPointRow]:
     """All (x, y) points for one Point2DType field, joined to their document text
-    and, if `group_field` is given, that GroupType field's value per document.
+    and, if `group_field` is given, that label or group field's value per document.
     `filters` narrows which documents' points are included."""
     stmt = (
         select(Point2D.document_id, Point2D.x, Point2D.y, Document.text)
@@ -296,7 +311,7 @@ def list_points_2d(
     stmt = _apply_filters(session, stmt, filters)
     if group_field is None:
         return [ScatterPointRow(doc_id, x, y, text) for doc_id, x, y, text in session.execute(stmt)]
-    groups = _group_value_subquery(group_field)
+    groups = _category_value_subquery(session, group_field)
     stmt = stmt.add_columns(groups.c.value).outerjoin(groups, groups.c.document_id == Point2D.document_id)
     return [ScatterPointRow(doc_id, x, y, text, group) for doc_id, x, y, text, group in session.execute(stmt)]
 
@@ -309,7 +324,7 @@ def list_score_pairs(
     filters: list[FieldFilter] | None = None,
 ) -> list[ScatterPointRow]:
     """Two ScoreType fields combined into (x, y) pairs, and if `group_field` is
-    given, that GroupType field's value per document. Inner join on the two score
+    given, that label or group field's value per document. Inner join on the two score
     fields: documents missing either score are simply omitted. `filters` narrows
     which documents' points are included."""
     x_scores = select(Score.document_id, Score.value.label("x")).where(Score.field_name == x_field).subquery()
@@ -322,6 +337,59 @@ def list_score_pairs(
     stmt = _apply_filters(session, stmt, filters)
     if group_field is None:
         return [ScatterPointRow(doc_id, x, y, text) for doc_id, x, y, text in session.execute(stmt)]
-    groups = _group_value_subquery(group_field)
+    groups = _category_value_subquery(session, group_field)
     stmt = stmt.add_columns(groups.c.value).outerjoin(groups, groups.c.document_id == x_scores.c.document_id)
     return [ScatterPointRow(doc_id, x, y, text, group) for doc_id, x, y, text, group in session.execute(stmt)]
+
+
+def list_strip_points(
+    session: Session,
+    x_field: str,
+    row_field: str | None = None,
+    color_field: str | None = None,
+    filters: list[FieldFilter] | None = None,
+) -> list[StripPointRow]:
+    """One point per document with a value for the ScoreType field `x_field`, and
+    if given, its value for the label/group fields `row_field` (which row of the
+    strip plot it lands in) and `color_field`. `filters` narrows which documents'
+    points are included. Raises ValueError if `row_field` or `color_field` isn't a
+    label or group field, or if `filters` is invalid (see `_apply_filters`)."""
+    stmt = (
+        select(Score.document_id, Score.value, Document.text)
+        .join(Document, Document.id == Score.document_id)
+        .where(Score.field_name == x_field)
+    )
+    stmt = _apply_filters(session, stmt, filters)
+    for category_field in (row_field, color_field):
+        if category_field is None:
+            stmt = stmt.add_columns(literal_column("NULL"))
+        else:
+            values = _category_value_subquery(session, category_field)
+            stmt = stmt.add_columns(values.c.value).outerjoin(values, values.c.document_id == Score.document_id)
+    return [StripPointRow(*row) for row in session.execute(stmt)]
+
+
+@dataclass
+class CrosstabCell:
+    row: str | None
+    col: str | None
+    count: int
+
+
+def crosstab(session: Session, row_field: str, col_field: str) -> list[CrosstabCell]:
+    """Document counts per (row_field value, col_field value) pair, for two label or
+    group fields (e.g. gold labels vs. predictions: a confusion matrix). Documents
+    with a value for only one of the fields count under None for the other; those
+    with neither are left out. Raises ValueError if either isn't a label or group
+    field."""
+    rows = _category_value_subquery(session, row_field)
+    cols = _category_value_subquery(session, col_field)
+    stmt = (
+        select(rows.c.value, cols.c.value, func.count())
+        .select_from(Document)
+        .outerjoin(rows, rows.c.document_id == Document.id)
+        .outerjoin(cols, cols.c.document_id == Document.id)
+        .where((rows.c.value.is_not(None)) | (cols.c.value.is_not(None)))
+        .group_by(rows.c.value, cols.c.value)
+    )
+    return [CrosstabCell(row, col, count) for row, col, count in session.execute(stmt)]

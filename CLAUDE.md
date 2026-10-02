@@ -101,8 +101,15 @@ live under `/api`; `npm run dev` proxies `/api` to port 8001, or `$SOURCETEXT_AP
 `GET /api/documents/scatter` (unpaginated `point_2d`/`score` fields plotted as
 `{documentId, x, y, text, group}` — pass `field=<point_2d field>` to plot one
 directly, or `xField=`/`yField=<score fields>` to combine two score fields as axes;
-pass neither to just list available fields; optionally add `colorField=<group
-field>` to attach that GroupType field's value per point for client-side coloring),
+pass neither to just list the plot view's fields (point_2d, score, label, group);
+optionally add `colorField=<label or group field>` to attach its value per point
+for client-side coloring), `GET /api/documents/strip` (unpaginated
+`{documentId, x, text, row, color}` per document with a value for the score field
+`xField=`, split by the label/group field `rowField=`, optionally colored by
+`colorField=` — the plot view uses it when one axis is categorical), `GET
+/api/documents/crosstab` (`{row, col, count}` per value pair of the label/group
+fields `rowField=`/`colField=`, for the confusion matrix view; its cell's documents
+come from the tabular route with two "in" filters),
 `GET /api/documents/fields` (the full field list, for
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
@@ -111,7 +118,7 @@ populate that detail pane on selection from a non-tabular view), and `PUT
 field). Read helpers are in `db/queries.py`. Routes must be `async def`: in-memory
 DuckDB is per-thread, so FastAPI's threadpool would see an empty DB. The
 `{document_id}`-taking routes are registered after the static `tabular`/`scatter`/
-`fields` routes so FastAPI matches those literal paths first.
+`strip`/`crosstab`/`fields` routes so FastAPI matches those literal paths first.
 
 **Dev workflow**: mock data lives outside the package in `dev/` (one module per
 scenario in `dev/scenarios/`, each exposing `make_source_text()`). Run

@@ -52,3 +52,25 @@ class ScatterPointOut(CamelModel):
 class ScatterResponse(CamelModel):
     fields: list[FieldOut]
     points: list[ScatterPointOut]
+
+
+class StripPointOut(CamelModel):
+    document_id: str
+    x: float
+    text: str
+    row: str | None = None
+    color: str | None = None
+
+
+class StripResponse(CamelModel):
+    points: list[StripPointOut]
+
+
+class CrosstabCellOut(CamelModel):
+    row: str | None
+    col: str | None
+    count: int
+
+
+class CrosstabResponse(CamelModel):
+    cells: list[CrosstabCellOut]
