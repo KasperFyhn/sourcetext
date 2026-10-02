@@ -6,6 +6,7 @@ import { scaleLinear } from '@visx/scale'
 import { useMemo, useRef, useState } from 'react'
 
 import type { ScatterPoint } from '../api'
+import { buildColorScale } from '../colors'
 
 interface Props {
   points: ScatterPoint[]
@@ -19,49 +20,6 @@ const MARGIN = { top: 16, right: 16, bottom: 40, left: 56 }
 const BUCKET_SIZE = 8
 const CLOSE_DELAY_MS = 150
 const TOOLTIP_WIDTH = 240
-
-// dataviz skill's categorical palette, slots 1-3 (blue/orange/aqua). A scatterplot
-// shows every group simultaneously, so every pair of colors must be mutually
-// distinguishable ("all-pairs") rather than just neighbor-to-neighbor — only the
-// first 3 of the palette's 8 slots are validated for that; a 4th color risks two
-// groups reading as the same hue to color-blind viewers. Additional groups fold
-// into a shared neutral "Other" bucket instead of a 4th generated hue.
-const CATEGORICAL_COLORS = ['#2a78d6', '#eb6834', '#1baf7a']
-const OTHER_COLOR = '#898781'
-const OTHER_LABEL = 'Other'
-const NO_GROUP_LABEL = '(no group)'
-
-interface ColorScale {
-  colorOf: (group: string | null) => string
-  legend: { label: string; color: string }[]
-}
-
-// Colors the most frequent groups (up to the palette's all-pairs-safe cap) and
-// folds everything else — including documents with no value for the field — into
-// one neutral "Other" bucket, ranked by frequency for a stable, meaningful order.
-function buildColorScale(points: ScatterPoint[]): ColorScale {
-  const counts = new Map<string, number>()
-  const order: string[] = []
-  for (const point of points) {
-    const key = point.group ?? NO_GROUP_LABEL
-    if (!counts.has(key)) order.push(key)
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  }
-  const ranked = [...order].sort(
-    (a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0),
-  )
-  const top = ranked.slice(0, CATEGORICAL_COLORS.length)
-  const colorByKey = new Map(
-    top.map((key, index) => [key, CATEGORICAL_COLORS[index]]),
-  )
-  const legend = top.map((key) => ({ label: key, color: colorByKey.get(key)! }))
-  if (ranked.length > top.length)
-    legend.push({ label: OTHER_LABEL, color: OTHER_COLOR })
-  return {
-    colorOf: (group) => colorByKey.get(group ?? NO_GROUP_LABEL) ?? OTHER_COLOR,
-    legend,
-  }
-}
 
 // A cluster can straddle a group boundary; color it by whichever group is most
 // represented among its points.
@@ -214,7 +172,10 @@ function ScatterPlotInner({
   // also how we tell "coloring is active" from "no color field selected" —
   // when it's off, the plot renders exactly as it did before this feature.
   const hasGroups = points.some((point) => point.group != null)
-  const colorScale = useMemo(() => buildColorScale(points), [points])
+  const colorScale = useMemo(
+    () => buildColorScale(points.map((point) => point.group)),
+    [points],
+  )
 
   return (
     <div style={{ position: 'relative', width, height }}>

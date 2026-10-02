@@ -45,10 +45,15 @@ the background, so you can keep working and call `st.stop_server()` when done.
 
 - **Table view.** Every document with its fields as columns. Sort by any column,
   and filter by label, group, score range or date range.
-- **Scatter view.** Plot documents by a 2D embedding projection (e.g. UMAP), or by
-  any two scores against each other, optionally coloured by group. Useful for
-  spotting where a model's confidence and a second measure disagree.
-- **Document pane.** Select a document in either view to read its full text
+- **Plot view.** Plot documents by a 2D embedding projection (e.g. UMAP), or put
+  any two fields on the axes, optionally coloured by a label or group. Two scores
+  give a scatter plot, useful for spotting where a model's confidence and a second
+  measure disagree. A score against a label or group gives a strip plot: one row
+  (or column) per category, with every document as its own dot.
+- **Confusion matrix view.** Cross two labels or groups (e.g. gold labels and
+  predictions) and click a cell to list its documents, which you can then filter
+  further by their other fields.
+- **Document pane.** Select a document in any view to read its full text
   alongside all of its field values.
 - **Notes.** Write a free-text note on any document while you read it.
 
@@ -72,8 +77,11 @@ st = SourceText(
 st.start_server()
 ```
 
-Sort by confidence to read the model's most and least certain calls, or filter to
-documents where `predictions` and `gold_labels` disagree.
+Sort by confidence to read the model's most and least certain calls. The confusion
+matrix view opens on gold labels vs. predictions: click an off-diagonal cell to read
+the documents the model got wrong. The plot view opens on confidence per gold label,
+coloured by prediction, so you can see whether those errors were confident or only
+borderline.
 
 ### Topic model with group definitions
 
@@ -117,7 +125,7 @@ st = SourceText(
 st.start_server()
 ```
 
-In the scatter view, pick `embedding` and colour by `groups` to see which clusters
+In the plot view, pick `embedding` and colour by `groups` to see which clusters
 the projection keeps together, then click through the points where it doesn't.
 
 ### From a DataFrame, with metadata
@@ -233,15 +241,15 @@ SourceText(
 
 ## Field types
 
-| Type           | Values                                              | In the app                                  | Typical use                         |
-|----------------|-----------------------------------------------------|---------------------------------------------|-------------------------------------|
-| `TextType`     | `str`                                               | shown as text                               | titles, authors, source metadata    |
-| `LabelType`    | `str`, `int`, `bool`                                | badge; filter by value                      | classifier output, gold labels      |
-| `ScoreType`    | `float`, `int`                                      | filter by range; scatter-plot axis          | confidence, sentiment, any metric   |
-| `GroupType`    | `str`, `int`                                        | badge; filter by value; colour scatter plot | clusters, topics                    |
-| `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                             | publication year, timestamps        |
-| `Point2DType`  | `(x, y)` pair of numbers                            | position in the scatter plot                | UMAP / t-SNE embedding projections  |
-| `SpanType`     | list of `{"start", "end", "label"}` dicts           | *not yet displayed*                         | named entities, marked passages     |
+| Type           | Values                                               | In the app                                                    | Typical use                        |
+|----------------|------------------------------------------------------|---------------------------------------------------------------|------------------------------------|
+| `TextType`     | `str`                                                | shown as text                                                 | titles, authors, source metadata   |
+| `LabelType`    | `str`, `int`, `bool`                                 | badge; filter by value; plot axis or colour; confusion matrix | classifier output, gold labels     |
+| `ScoreType`    | `float`, `int`                                       | filter by range; plot axis                                    | confidence, sentiment, any metric  |
+| `GroupType`    | `str`, `int`                                         | badge; filter by value; plot axis or colour; confusion matrix | clusters, topics                   |
+| `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps       |
+| `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections |
+| `SpanType`     | list of `{"start", "end", "label"}` dicts            | *not yet displayed*                                           | named entities, marked passages    |
 
 All columns in the table view are sortable.
 
@@ -253,7 +261,7 @@ Notes on specific types:
   `end` are character offsets into the text, `label` is a string, and an optional
   `score` may be included.
 - **`Point2DType`**: to plot two separate scores against each other instead, just
-  pass them as two `ScoreType` fields and pick both as axes in the scatter view.
+  pass them as two `ScoreType` fields and pick both as axes in the plot view.
 
 ### Group definitions
 

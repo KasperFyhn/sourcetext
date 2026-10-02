@@ -5,12 +5,14 @@ from pydantic import TypeAdapter, ValidationError
 
 import sourcetext.db as db
 from sourcetext.server.requests import (
+    CrosstabResponse,
     DocumentOut,
     DocumentsResponse,
     FieldFilterIn,
     FieldsResponse,
     NoteIn,
     ScatterResponse,
+    StripResponse,
 )
 
 router = APIRouter(prefix="/api")
@@ -78,7 +80,7 @@ async def get_scatter(
 
     with request.app.state.db_sessionmaker() as session:
         field_filters = _parse_filters(filters)
-        fields = db.list_scatter_fields(session)
+        fields = db.list_plot_fields(session)
         try:
             if field is not None:
                 points = db.list_points_2d(session, field, group_field=color_field, filters=field_filters)
@@ -94,6 +96,44 @@ async def get_scatter(
         }
 
 
+@router.get("/documents/strip", response_model=StripResponse)
+async def get_strip(
+    request: Request,
+    x_field: str = Query(alias="xField"),
+    row_field: str = Query(alias="rowField"),
+    color_field: str | None = Query(None, alias="colorField"),
+    filters: str | None = Query(None),
+):
+    """One point per document along the score field `xField`, split into rows by the
+    label or group field `rowField` and optionally colored by another (`colorField`):
+    the plot view's strip plot, used when one of its axes is categorical."""
+    with request.app.state.db_sessionmaker() as session:
+        field_filters = _parse_filters(filters)
+        try:
+            points = db.list_strip_points(
+                session, x_field, row_field=row_field, color_field=color_field, filters=field_filters
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return {"points": [asdict(p) for p in points]}
+
+
+@router.get("/documents/crosstab", response_model=CrosstabResponse)
+async def get_crosstab(
+    request: Request,
+    row_field: str = Query(alias="rowField"),
+    col_field: str = Query(alias="colField"),
+):
+    """Document counts per value pair of two label or group fields (a confusion
+    matrix, for e.g. gold labels vs. predictions)."""
+    with request.app.state.db_sessionmaker() as session:
+        try:
+            cells = db.crosstab(session, row_field, col_field)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return {"cells": [asdict(c) for c in cells]}
+
+
 @router.get("/documents/fields", response_model=FieldsResponse)
 async def get_fields(request: Request):
     """The full field list (all typed-field kinds), for a document-detail pane that
@@ -102,9 +142,10 @@ async def get_fields(request: Request):
         return {"fields": [asdict(f) for f in db.list_fields(session)]}
 
 
-# Registered after the static `/documents/tabular`, `/documents/scatter` and
-# `/documents/fields` routes above: FastAPI matches routes in registration order, so
-# those literal paths are matched before falling through to this `{document_id}` route.
+# Registered after the static `/documents/tabular`, `/documents/scatter`, `/documents/strip`,
+# `/documents/crosstab` and `/documents/fields` routes above: FastAPI matches routes in
+# registration order, so those literal paths are matched before falling through to this
+# `{document_id}` route.
 @router.get("/documents/{document_id}", response_model=DocumentOut)
 async def get_document(document_id: str, request: Request):
     with request.app.state.db_sessionmaker() as session:
