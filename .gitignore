@@ -219,3 +219,5 @@ __marimo__/
 
 # Frontend build copied into the Python package by scripts/build-frontend.sh
 sourcetext/server/static/
+
+.DS_Store
