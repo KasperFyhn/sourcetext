@@ -9,7 +9,8 @@ NER, sentiment, clustering, etc.) alongside source text and record interpretive
 judgments in situ. `README.md` is both the landing page (also rendered on PyPI, so
 links in it must be absolute GitHub URLs) and the user-facing documentation: its
 lower "Documentation" half is the API reference. Keep it in sync with the code,
-including its "Project status" list of what isn't built yet.
+including its "Project status" list of what isn't built yet. `ROADMAP.md` lists
+planned features; move items out of it as they ship.
 
 ## Commands
 

@@ -158,6 +158,9 @@ and some parts are not built yet:
   highlighted in the text.
 - **Group definitions** are accepted and stored, but not yet shown in the app.
 
+See the [roadmap](https://github.com/KasperFyhn/sourcetext/blob/main/ROADMAP.md) for
+what's planned next.
+
 Feedback and issues are very welcome at
 [github.com/KasperFyhn/sourcetext/issues](https://github.com/KasperFyhn/sourcetext/issues).
 
