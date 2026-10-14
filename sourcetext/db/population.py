@@ -7,6 +7,7 @@ labels/scores/spans/... can be inserted together as one unit of work.
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, Callable, Sequence, TypeVar
 
 from sqlalchemy.orm import Session
@@ -155,8 +156,16 @@ def add_spans(session: Session, field_name: str, document_ids: Sequence, values:
     return spans
 
 
-def set_note(session: Session, document_id: str, text: str) -> Note:
-    """Create or replace the note for `document_id`. The document must exist."""
+def set_note(session: Session, document_id: str, text: str, updated_at: dt.datetime | None = None) -> Note | None:
+    """Create or replace the note for `document_id`, or delete it if `text` is empty.
+    The document must exist. `updated_at` (naive UTC) defaults to now."""
     if session.get(Document, str(document_id)) is None:
         raise KeyError(f"No document with id {document_id!r}.")
-    return session.merge(Note(document_id=str(document_id), text=text))
+    if not text:
+        existing = session.get(Note, str(document_id))
+        if existing is not None:
+            session.delete(existing)
+        return None
+    if updated_at is None:
+        updated_at = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+    return session.merge(Note(document_id=str(document_id), text=text, updated_at=updated_at))

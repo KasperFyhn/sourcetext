@@ -41,6 +41,22 @@ class NoteIn(CamelModel):
     text: str
 
 
+class NotesFileIn(CamelModel):
+    path: str
+
+
+class NotesFileLoadOut(CamelModel):
+    loaded: int
+    messages: list[str]
+
+
+class NotesFileOut(CamelModel):
+    path: str | None
+    suggested_path: str
+    # Set when a file was just chosen: what loading its existing notes found.
+    load: NotesFileLoadOut | None = None
+
+
 class ScatterPointOut(CamelModel):
     document_id: str
     x: float

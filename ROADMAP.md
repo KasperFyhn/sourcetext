@@ -10,11 +10,9 @@ welcome at
 These features are accepted by the Python API today but don't do everything they
 should yet.
 
-- **Persist notes.** Notes currently live in the in-memory database and are lost
-  when the Python process ends. Save them to a sidecar file next to the data, and
-  load them again when the same corpus is opened.
-- **Get notes back into Python.** At the moment notes can only be read in the app.
-  Add a way to return them to your analysis, e.g. `st.notes` as a DataFrame of
+- **Get notes back into Python.** Today notes can be read back from their JSONL
+  file (`pd.read_json(path, lines=True)`), but not from the `SourceText`. Add a way
+  to return them to your analysis, e.g. `st.notes` as a DataFrame of
   `(document_id, note)`, or `st.to_dataframe()` with notes as a column.
 - **Render spans.** `SpanType` fields (e.g. NER output) are stored but not shown.
   Highlight them in the document pane, coloured by label, with their scores on

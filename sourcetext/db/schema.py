@@ -172,3 +172,6 @@ class Note(Base):
 
     document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), primary_key=True)
     text: Mapped[str] = mapped_column(SqlAlchemyText, nullable=False)
+    # Naive UTC. Written to the notes file so that, of several records competing for
+    # the same document, the most recent one wins.
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, nullable=False)

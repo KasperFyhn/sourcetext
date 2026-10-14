@@ -393,3 +393,21 @@ def crosstab(session: Session, row_field: str, col_field: str) -> list[CrosstabC
         .group_by(rows.c.value, cols.c.value)
     )
     return [CrosstabCell(row, col, count) for row, col, count in session.execute(stmt)]
+
+
+@dataclass
+class NoteRow:
+    document_id: str
+    text: str
+    updated_at: dt.datetime
+
+
+def list_notes(session: Session) -> list[NoteRow]:
+    """Every note, ordered by document id."""
+    stmt = select(Note.document_id, Note.text, Note.updated_at).order_by(Note.document_id)
+    return [NoteRow(*row) for row in session.execute(stmt)]
+
+
+def list_document_texts(session: Session) -> dict[str, str]:
+    """`{document_id: text}` for every document."""
+    return {document_id: text for document_id, text in session.execute(select(Document.id, Document.text))}

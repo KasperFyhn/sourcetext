@@ -55,7 +55,8 @@ the background, so you can keep working and call `st.stop_server()` when done.
   further by their other fields.
 - **Document pane.** Select a document in any view to read its full text
   alongside all of its field values.
-- **Notes.** Write a free-text note on any document while you read it.
+- **Notes.** Write a free-text note on any document while you read it. Notes are
+  saved to a plain JSONL file you choose, so they survive between sessions.
 
 ## Examples
 
@@ -151,9 +152,6 @@ st.start_server()
 sourcetext is in early development (alpha). The API may change between releases,
 and some parts are not built yet:
 
-- **Notes are not saved yet.** They live in an in-memory database and are lost
-  when your Python process ends. Persisting them to a file next to your data is
-  planned.
 - **Spans** (`SpanType`, e.g. NER output) are accepted and stored, but not yet
   highlighted in the text.
 - **Group definitions** are accepted and stored, but not yet shown in the app.
@@ -182,6 +180,7 @@ SourceText(
     scores=None,
     groups=None,
     group_definitions=None,
+    notes_file=None,
     **fields,
 )
 ```
@@ -280,6 +279,49 @@ SourceText(texts, groups=GroupType(topics, definitions=keywords))
 # Custom group fields take definitions= directly:
 SourceText(texts, era=GroupType(eras, definitions={"early": "before 1850", "late": "1850 and after"}))
 ```
+
+## Notes
+
+Notes you write in the app are saved to a JSONL file. Pass its path as
+`notes_file=` to load the notes in it when the `SourceText` is created:
+
+```python
+st = SourceText(texts, predictions=preds, notes_file="notes.jsonl")
+```
+
+The file doesn't need to exist yet; it is created when the first note is written.
+
+Notes are always saved to a file; they're never kept only in memory. Without
+`notes_file=`, sourcetext looks for `sourcetext_notes.jsonl` in your working
+directory and uses it if it's there. This is the app's suggested file, so notes
+saved there come back when you run the same code again. Otherwise the notes field
+is disabled until you click **Select notes file ...** next to it: pick a new file,
+or the file you saved notes to before to continue with them (relative paths are
+relative to your Python session's working directory). Once chosen, the file's name
+is shown there instead; click it to switch to another file.
+
+If you switch to a file that has a different note on a document than the one
+you're already using, neither note is lost: both are kept in one note, the older first, separated by
+`---`.
+
+Each line of the file is one note:
+
+```json
+{"document_id": "42", "text_hash": "3f2a9c1e0b7d4e85", "note": "Sarcasm, not praise.", "updated_at": "2026-10-13T12:00:00+00:00"}
+```
+
+Read it back into pandas with `pd.read_json("notes.jsonl", lines=True)`.
+
+Notes are matched back to documents like this:
+
+- **With `ids=`**: by document ID. You're warned if a document's text has changed
+  since its note was written.
+- **Without `ids=`**: by the text itself (`text_hash`), since the default IDs are
+  just row positions and change when the data is reordered or filtered. If several
+  documents have exactly the same text, the note is shown on all of them.
+
+Notes for documents that aren't in the current corpus (e.g. when you load a
+subset) are kept in the file, not deleted. You're told how many there are.
 
 ## Serving the app
 

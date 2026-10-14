@@ -114,9 +114,25 @@ come from the tabular route with two "in" filters),
 `GET /api/documents/fields` (the full field list, for
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
-populate that detail pane on selection from a non-tabular view), and `PUT
+populate that detail pane on selection from a non-tabular view), `PUT
 /api/documents/{id}/note` (notes live in the `notes` table, which is not a typed
-field). Read helpers are in `db/queries.py`. Routes must be `async def`: in-memory
+field; an empty note deletes the row), and `GET`/`PUT /api/notes/file` (where notes
+are saved).
+
+**Notes persistence**: notes are the only user-created data, so they're the only
+thing persisted; typed fields are rebuilt from Python each run. `sourcetext/notes.py`'s
+`NotesFile` (one per `SourceText`, on `app.state.notes_file`) mirrors the `notes`
+table to a JSONL file (`notes_file=`, or chosen in the UI dialog), rewriting it
+atomically after each note change. Records carry `document_id` and `text_hash`:
+they match by id if the user passed `ids=`, else by text hash (duplicate texts all
+get the note). Records matching no document are kept as orphans and written back.
+Notes are never kept only in memory: until a file is set, the note route returns
+409 and the UI disables the notes field, with "Select notes file ..." in its label; a
+note that can't be written to the file is rolled back. Without `notes_file=`,
+`./sourcetext_notes.jsonl` is used if it exists (it's the dialog's default), so
+reruns pick notes up again. Conflicting notes (switching files mid-session) are concatenated
+(`MERGE_SEPARATOR`), never dropped. `tests/conftest.py` runs each test in its own
+tmp working directory so a stray default notes file doesn't leak in. Read helpers are in `db/queries.py`. Routes must be `async def`: in-memory
 DuckDB is per-thread, so FastAPI's threadpool would see an empty DB. The
 `{document_id}`-taking routes are registered after the static `tabular`/`scatter`/
 `strip`/`crosstab`/`fields` routes so FastAPI matches those literal paths first.
@@ -129,6 +145,5 @@ UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
-**Not yet implemented**: span rendering and group-definition display in the UI,
-and sidecar-file persistence of notes (they currently live in the same in-memory
-DuckDB as the data, so they're lost when the process exits) — don't assume they work.
+**Not yet implemented**: span rendering and group-definition display in the UI —
+don't assume they work.

@@ -1,6 +1,16 @@
-import { Flex, Group, Stack, Text, Textarea, Title } from '@mantine/core'
+import {
+  Flex,
+  Group,
+  Stack,
+  Text,
+  Textarea,
+  Title,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core'
 
 import type { Document, Field } from '../api'
+import { useNotesFile } from '../contexts/NotesFileContext'
 import { FieldValueView } from './FieldValueView'
 
 interface Props {
@@ -18,8 +28,14 @@ export function DocumentView({
   onNotesChange,
   onNotesSave,
 }: Props) {
+  const { status, openDialog } = useNotesFile()
+
   if (!document)
-    return <Text c="dimmed">Select a document in the table to view it.</Text>
+    return (
+      <Text c="dimmed">
+        Select a document in the navigation pane to view it.
+      </Text>
+    )
 
   return (
     <Stack>
@@ -41,8 +57,32 @@ export function DocumentView({
       </Group>
       <Text style={{ whiteSpace: 'pre-wrap' }}>{document.text}</Text>
       <Textarea
-        label="Notes"
-        placeholder="Write your interpretation of this document..."
+        label={
+          <Group gap="xs">
+            Notes
+            <Tooltip
+              label={
+                status?.path
+                  ? `Saved to ${status.path}. Click to change.`
+                  : 'Notes are saved to a file. Click to choose one.'
+              }
+            >
+              <UnstyledButton onClick={openDialog}>
+                <Text size="xs" c="dimmed">
+                  {status?.path
+                    ? `saved to ${status.path.split(/[\\/]/).pop()}`
+                    : 'Select notes file ...'}
+                </Text>
+              </UnstyledButton>
+            </Tooltip>
+          </Group>
+        }
+        placeholder={
+          status?.path
+            ? 'Write your interpretation of this document...'
+            : 'Select a notes file to start taking notes.'
+        }
+        disabled={!status?.path}
         autosize
         minRows={4}
         value={notes}

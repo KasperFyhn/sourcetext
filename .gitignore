@@ -221,3 +221,5 @@ __marimo__/
 sourcetext/server/static/
 
 .DS_Store
+
+sourcetext_notes.jsonl

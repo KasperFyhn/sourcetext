@@ -6,7 +6,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from sourcetext.notes import NotesFile
 from sourcetext.server.routes.documents import router as documents_router
+from sourcetext.server.routes.notes import router as notes_router
 
 build_directory = Path(__file__).parent / "static"
 
@@ -19,6 +21,8 @@ _dev = False
 async def lifespan(app_arg: FastAPI):
     if getattr(app_arg.state, "db_sessionmaker", None) is None:
         raise ValueError("No DB sessionmaker provided. Set `app.state.db_sessionmaker` before startup.")
+    if getattr(app_arg.state, "notes_file", None) is None:
+        app_arg.state.notes_file = NotesFile()
 
     if _dev:
         logging.info("Dev mode: serving the API only, not mounting the built UI.")
@@ -45,3 +49,4 @@ app.add_middleware(
 )
 
 app.include_router(documents_router)
+app.include_router(notes_router)
