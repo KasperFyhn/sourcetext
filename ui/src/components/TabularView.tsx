@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 
 import { fetchTabularDocuments, PAGE_SIZE } from '../api'
 import type { Document, DocumentsPage, FieldFilter, Sort } from '../api'
-import { useDocumentNotes } from '../hooks/useDocumentNotes'
 import { DocumentTable } from './DocumentTable'
 import { DocumentView } from './DocumentView'
 import { FieldFilters } from './FieldFilters'
@@ -15,10 +14,6 @@ export function TabularView() {
   const [data, setData] = useState<DocumentsPage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)
-  const { currentNotes, handleNotesChange, handleNotesSave } = useDocumentNotes(
-    selected,
-    setError,
-  )
 
   useEffect(() => {
     let stale = false
@@ -84,22 +79,7 @@ export function TabularView() {
           )}
         </Stack>
       </Box>
-      <Box
-        flex={2}
-        p="md"
-        style={{
-          overflowY: 'auto',
-          borderLeft: '1px solid var(--mantine-color-default-border)',
-        }}
-      >
-        <DocumentView
-          fields={fields}
-          document={selected}
-          notes={currentNotes}
-          onNotesSave={handleNotesSave}
-          onNotesChange={handleNotesChange}
-        />
-      </Box>
+      <DocumentView fields={fields} document={selected} />
     </Flex>
   )
 }
