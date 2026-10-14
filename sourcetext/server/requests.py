@@ -13,7 +13,7 @@ class FieldOut(CamelModel):
 
 class FieldFilterIn(CamelModel):
     field: str
-    op: Literal["in", "range", "contains"]
+    op: Literal["in", "range", "contains", "span"]
     values: list[str] | None = None
     min: float | str | None = None
     max: float | str | None = None
@@ -94,3 +94,37 @@ class CrosstabCellOut(CamelModel):
 
 class CrosstabResponse(CamelModel):
     cells: list[CrosstabCellOut]
+
+
+class SpanLabelOut(CamelModel):
+    label: str
+    spans: int
+    documents: int
+
+
+class SpanTextOut(CamelModel):
+    text: str
+    label: str
+    spans: int
+    documents: int
+
+
+class SpansResponse(CamelModel):
+    # Every span field, and the one summarized (None if there are no span fields).
+    fields: list[str]
+    field: str | None
+    labels: list[SpanLabelOut]
+    texts: list[SpanTextOut]
+    total_texts: int
+
+
+class DocumentSpanOut(CamelModel):
+    field: str
+    start: int
+    end: int
+    label: str
+    score: float | None
+
+
+class DocumentSpansResponse(CamelModel):
+    spans: list[DocumentSpanOut]

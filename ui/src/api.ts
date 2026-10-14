@@ -17,8 +17,10 @@ export interface Field {
   max?: number | string | null
 }
 
-export type FilterOp = 'in' | 'range' | 'contains'
+export type FilterOp = 'in' | 'range' | 'contains' | 'span'
 
+// A "span" filter matches documents with at least one span in the span field
+// `field`, narrowed to spans labelled one of `values` and/or covering exactly `text`.
 export interface FieldFilter {
   field: string
   op: FilterOp
@@ -173,6 +175,71 @@ export async function fetchDocument(documentId: string): Promise<Document> {
   const res = await fetch(`/api/documents/${encodeURIComponent(documentId)}`)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json() as Promise<Document>
+}
+
+export interface SpanLabel {
+  label: string
+  spans: number
+  documents: number
+}
+
+export interface SpanText {
+  text: string
+  label: string
+  spans: number
+  documents: number
+}
+
+export interface SpanSummary {
+  // Every span field, and the one summarized (null if there are no span fields).
+  fields: string[]
+  field: string | null
+  labels: SpanLabel[]
+  // The most frequent (text, label) pairs, of `totalTexts` matching in all.
+  texts: SpanText[]
+  totalTexts: number
+}
+
+export interface SpanQuery {
+  field?: string
+  label?: string
+  q?: string
+  filters?: FieldFilter[]
+}
+
+// An overview of one span field (default: the first): counts per label, and the
+// most frequent span texts, narrowed to one label and/or texts containing `q`.
+export async function fetchSpanSummary(query: SpanQuery): Promise<SpanSummary> {
+  const { filters, ...rest } = query
+  const entries = Object.entries(rest).filter(([, value]) => value)
+  const params = new URLSearchParams(
+    Object.fromEntries(entries) as Record<string, string>,
+  )
+  if (filters && filters.length > 0) {
+    params.set('filters', JSON.stringify(filters))
+  }
+  const res = await fetch(`/api/spans?${params}`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json() as Promise<SpanSummary>
+}
+
+export interface Span {
+  field: string
+  // Character (code point) offsets into the document text, as given in Python.
+  start: number
+  end: number
+  label: string
+  score: number | null
+}
+
+// Every span on one document, across all span fields, in text order.
+export async function fetchDocumentSpans(documentId: string): Promise<Span[]> {
+  const res = await fetch(
+    `/api/documents/${encodeURIComponent(documentId)}/spans`,
+  )
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const body = (await res.json()) as { spans: Span[] }
+  return body.spans
 }
 
 export async function fetchNote(documentId: string): Promise<string> {

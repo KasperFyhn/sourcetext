@@ -7,12 +7,14 @@ import sourcetext.db as db
 from sourcetext.server.requests import (
     CrosstabResponse,
     DocumentOut,
+    DocumentSpansResponse,
     DocumentsResponse,
     FieldFilterIn,
     FieldsResponse,
     NoteIn,
     NoteOut,
     ScatterResponse,
+    SpansResponse,
     StripResponse,
 )
 
@@ -143,6 +145,33 @@ async def get_fields(request: Request):
         return {"fields": [asdict(f) for f in db.list_fields(session)]}
 
 
+@router.get("/spans", response_model=SpansResponse)
+async def get_spans(
+    request: Request,
+    field: str | None = Query(None),
+    label: str | None = Query(None),
+    q: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    filters: str | None = Query(None),
+):
+    """An overview of the span field `field` (default: the first one) for the span
+    view: counts per label, and the most frequent span texts, narrowed to one
+    `label` and/or to texts containing `q`. Its documents come from the tabular
+    route with a "span" filter."""
+    with request.app.state.db_sessionmaker() as session:
+        field_filters = _parse_filters(filters)
+        fields = db.list_span_fields(session)
+        if field is None and fields:
+            field = fields[0]
+        if field is None:
+            return {"fields": [], "field": None, "labels": [], "texts": [], "total_texts": 0}
+        try:
+            summary = db.summarize_spans(session, field, label=label, query=q, limit=limit, filters=field_filters)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return {"fields": fields, "field": field, **asdict(summary)}
+
+
 # Registered after the static `/documents/tabular`, `/documents/scatter`, `/documents/strip`,
 # `/documents/crosstab` and `/documents/fields` routes above: FastAPI matches routes in
 # registration order, so those literal paths are matched before falling through to this
@@ -183,3 +212,13 @@ async def put_note(document_id: str, note: NoteIn, request: Request) -> None:
             session.rollback()
             raise HTTPException(status_code=500, detail=f"Could not write {notes_file.path}: {e}")
         session.commit()
+
+
+@router.get("/documents/{document_id}/spans", response_model=DocumentSpansResponse)
+async def get_document_spans(document_id: str, request: Request):
+    """Every span on one document, across all span fields, in text order."""
+    with request.app.state.db_sessionmaker() as session:
+        try:
+            return {"spans": [asdict(s) for s in db.list_document_spans(session, document_id)]}
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"No document with id {document_id!r}.")

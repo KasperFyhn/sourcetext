@@ -110,7 +110,12 @@ for client-side coloring), `GET /api/documents/strip` (unpaginated
 `colorField=` — the plot view uses it when one axis is categorical), `GET
 /api/documents/crosstab` (`{row, col, count}` per value pair of the label/group
 fields `rowField=`/`colField=`, for the confusion matrix view; its cell's documents
-come from the tabular route with two "in" filters),
+come from the tabular route with two "in" filters), `GET /api/spans` (the span
+view: span/document counts per label and per distinct covered text of the span field
+`field=`, default the first; narrow the texts with `label=`/`q=`, and the documents
+counted with `filters=`; its documents come from the tabular route with a `"span"`
+filter, `{field, op: "span", values?: [labels], text?: exact covered text}`), `GET
+/api/documents/{id}/spans` (one document's spans, for highlighting),
 `GET /api/documents/fields` (the full field list, for
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
@@ -146,5 +151,6 @@ UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
-**Not yet implemented**: span rendering and group-definition display in the UI —
-don't assume they work.
+**Not yet implemented**: rendering all of a document's spans (the span view only
+highlights those it navigated by) and group-definition display in the UI — don't
+assume they work.

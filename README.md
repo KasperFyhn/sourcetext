@@ -53,6 +53,10 @@ the background, so you can keep working and call `st.stop_server()` when done.
 - **Confusion matrix view.** Cross two labels or groups (e.g. gold labels and
   predictions) and click a cell to list its documents, which you can then filter
   further by their other fields.
+- **Span view.** Find documents by their span annotations (e.g. NER output). Pick
+  a span label to list the documents containing one, or search the texts spans
+  cover and pick one (e.g. every "Paris" tagged `PER`) to list its documents. The
+  matching spans are highlighted in the document pane.
 - **Document pane.** Select a document in any view to read its full text
   alongside all of its field values.
 - **Notes.** Write a free-text note on any document while you read it. Notes are
@@ -129,6 +133,24 @@ st.start_server()
 In the plot view, pick `embedding` and colour by `groups` to see which clusters
 the projection keeps together, then click through the points where it doesn't.
 
+### Named entities
+
+```python
+import spacy
+from sourcetext import SourceText, SpanType
+
+nlp = spacy.load("en_core_web_sm")
+entities = [
+    [{"start": e.start_char, "end": e.end_char, "label": e.label_} for e in doc.ents] for doc in nlp.pipe(texts)
+]
+
+st = SourceText(texts, entities=SpanType(entities))
+st.start_server()
+```
+
+In the span view, search for a name to see every label the model gave it, then
+pick the unexpected one to read those documents with the spans highlighted.
+
 ### From a DataFrame, with metadata
 
 ```python
@@ -152,8 +174,9 @@ st.start_server()
 sourcetext is in early development (alpha). The API may change between releases,
 and some parts are not built yet:
 
-- **Spans** (`SpanType`, e.g. NER output) are accepted and stored, but not yet
-  highlighted in the text.
+- **Spans** (`SpanType`, e.g. NER output) can be searched in the span view, which
+  highlights the spans it found a document by, but the text isn't yet shown with
+  all of its spans marked.
 - **Group definitions** are accepted and stored, but not yet shown in the app.
 
 See the [roadmap](https://github.com/KasperFyhn/sourcetext/blob/main/ROADMAP.md) for
@@ -251,7 +274,7 @@ SourceText(
 | `GroupType`    | `str`, `int`                                         | badge; filter by value; plot axis or colour; confusion matrix | clusters, topics                   |
 | `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps       |
 | `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections |
-| `SpanType`     | list of `{"start", "end", "label"}` dicts            | *not yet displayed*                                           | named entities, marked passages    |
+| `SpanType`     | list of `{"start", "end", "label"}` dicts            | span view: find documents by span label or covered text       | named entities, marked passages    |
 
 All columns in the table view are sortable.
 

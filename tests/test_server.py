@@ -549,3 +549,111 @@ def test_crosstab_route_rejects_non_categorical_field(tmp_path):
         "/api/documents/crosstab", params={"rowField": "predictions", "colField": "confidence"}
     )
     assert response.status_code == 400
+
+
+def _client_with_spans(tmp_path) -> TestClient:
+    """A separate dataset with a span field (NER-style) and a label field to filter by."""
+    create_session = db.get_sessionmaker(f"duckdb:///{tmp_path / 'spans.duckdb'}")
+    with create_session() as session:
+        ids = ["doc0", "doc1", "doc2", "doc3"]
+        db.add_documents(
+            session, ids, ["Obama met Merkel.", "Obama spoke in Berlin.", "Nothing here.", "Ærø og Obama."]
+        )
+        db.add_labels(session, "predictions", ids, ["a", "b", "a", "b"])
+        db.add_spans(
+            session,
+            "entities",
+            ids,
+            [
+                [{"start": 0, "end": 5, "label": "PER"}, {"start": 10, "end": 16, "label": "PER"}],
+                [{"start": 0, "end": 5, "label": "PER", "score": 0.9}, {"start": 15, "end": 21, "label": "LOC"}],
+                [],
+                [{"start": 0, "end": 3, "label": "LOC"}, {"start": 7, "end": 12, "label": "PER"}],
+            ],
+        )
+        session.commit()
+    app.state.db_sessionmaker = create_session
+    app.state.notes_file = NotesFile(tmp_path / "session_notes.jsonl")
+    return TestClient(app)
+
+
+def test_spans_route_counts_labels_and_texts(tmp_path):
+    body = _client_with_spans(tmp_path).get("/api/spans").json()
+
+    assert body["fields"] == ["entities"]
+    assert body["field"] == "entities"
+    assert body["labels"] == [
+        {"label": "PER", "spans": 4, "documents": 3},
+        {"label": "LOC", "spans": 2, "documents": 2},
+    ]
+    # Covered text is cut by character offsets, so non-ASCII text lines up.
+    assert body["texts"] == [
+        {"text": "Obama", "label": "PER", "spans": 3, "documents": 3},
+        {"text": "Berlin", "label": "LOC", "spans": 1, "documents": 1},
+        {"text": "Merkel", "label": "PER", "spans": 1, "documents": 1},
+        {"text": "Ærø", "label": "LOC", "spans": 1, "documents": 1},
+    ]
+    assert body["totalTexts"] == 4
+
+
+def test_spans_route_narrows_texts_by_label_and_query_but_not_labels(tmp_path):
+    client = _client_with_spans(tmp_path)
+
+    body = client.get("/api/spans", params={"label": "PER", "q": "ER"}).json()
+    assert [t["text"] for t in body["texts"]] == ["Merkel"]
+    assert body["totalTexts"] == 1
+    assert [label["label"] for label in body["labels"]] == ["PER", "LOC"]
+
+    body = client.get("/api/spans", params={"limit": 1}).json()
+    assert [t["text"] for t in body["texts"]] == ["Obama"]
+    assert body["totalTexts"] == 4
+
+
+def test_spans_route_applies_document_filters(tmp_path):
+    filters = json.dumps([{"field": "predictions", "op": "in", "values": ["a"]}])
+    body = _client_with_spans(tmp_path).get("/api/spans", params={"filters": filters}).json()
+
+    assert body["labels"] == [{"label": "PER", "spans": 2, "documents": 1}]
+    assert [t["text"] for t in body["texts"]] == ["Merkel", "Obama"]
+
+
+def test_spans_route_without_span_fields(tmp_path):
+    body = _client(tmp_path).get("/api/spans").json()
+
+    assert body == {"fields": [], "field": None, "labels": [], "texts": [], "totalTexts": 0}
+
+
+def test_spans_route_rejects_non_span_field(tmp_path):
+    response = _client_with_spans(tmp_path).get("/api/spans", params={"field": "predictions"})
+
+    assert response.status_code == 400
+
+
+def test_tabular_route_span_filter(tmp_path):
+    client = _client_with_spans(tmp_path)
+
+    def ids(span_filter):
+        body = client.get("/api/documents/tabular", params={"filters": json.dumps([span_filter])}).json()
+        return [d["id"] for d in body["documents"]]
+
+    assert ids({"field": "entities", "op": "span"}) == ["doc0", "doc1", "doc3"]
+    assert ids({"field": "entities", "op": "span", "values": ["LOC"]}) == ["doc1", "doc3"]
+    assert ids({"field": "entities", "op": "span", "values": ["PER"], "text": "Obama"}) == ["doc0", "doc1", "doc3"]
+    assert ids({"field": "entities", "op": "span", "values": ["LOC"], "text": "Obama"}) == []
+    response = client.get(
+        "/api/documents/tabular", params={"filters": json.dumps([{"field": "predictions", "op": "span"}])}
+    )
+    assert response.status_code == 400
+
+
+def test_document_spans_route(tmp_path):
+    client = _client_with_spans(tmp_path)
+
+    assert client.get("/api/documents/doc1/spans").json() == {
+        "spans": [
+            {"field": "entities", "start": 0, "end": 5, "label": "PER", "score": 0.9},
+            {"field": "entities", "start": 15, "end": 21, "label": "LOC", "score": None},
+        ]
+    }
+    assert client.get("/api/documents/doc2/spans").json() == {"spans": []}
+    assert client.get("/api/documents/missing/spans").status_code == 404

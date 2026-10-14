@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from sqlalchemy import func, literal_column, nulls_last, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from sourcetext.db.schema import (
     Document,
@@ -14,6 +14,7 @@ from sourcetext.db.schema import (
     Note,
     Point2D,
     Score,
+    Span,
     TemporalDate,
     TemporalDatetime,
     TemporalYear,
@@ -63,7 +64,7 @@ class FieldInfo:
 @dataclass
 class FieldFilter:
     field: str
-    op: Literal["in", "range", "contains"]
+    op: Literal["in", "range", "contains", "span"]
     values: list[str] | None = None
     min: float | str | None = None
     max: float | str | None = None
@@ -193,15 +194,53 @@ def _scalar_table_for_field(session: Session, field_name: str):
     return None
 
 
+def _span_text(document):
+    """SQL expression for the text a `Span` row covers in `document` (the `Document`
+    entity or an alias of it, joined to `Span`). Offsets are 0-based character
+    offsets; SQL's `substring` is 1-based."""
+    return func.substring(document.text, Span.span_start + 1, Span.span_end - Span.span_start)
+
+
+def list_span_fields(session: Session) -> list[str]:
+    """Every SpanType field name, in insertion order."""
+    stmt = select(Span.field_name).group_by(Span.field_name).order_by(func.min(Span.span_id))
+    return list(session.execute(stmt).scalars())
+
+
+def _require_span_field(session: Session, field_name: str) -> None:
+    exists = session.execute(select(Span.span_id).where(Span.field_name == field_name).limit(1)).first()
+    if not exists:
+        raise ValueError(f"{field_name!r} is not a span field.")
+
+
+def _span_filter_subquery(session: Session, f: FieldFilter):
+    """The ids of documents matching a "span" filter (see `_apply_filters`)."""
+    _require_span_field(session, f.field)
+    # An alias, so the subquery doesn't correlate with the outer query's `Document`.
+    document = aliased(Document)
+    sub = select(Span.document_id).join(document, document.id == Span.document_id).where(Span.field_name == f.field)
+    if f.values:
+        sub = sub.where(Span.label.in_(f.values))
+    if f.text:
+        sub = sub.where(_span_text(document) == f.text)
+    return sub.scalar_subquery()
+
+
 def _apply_filters(session: Session, stmt, filters: list[FieldFilter] | None):
     """Narrow `stmt` (any select with `Document` in its FROM clause) to documents
     matching every filter — AND across filters, OR within an "in" filter's
-    `values`. Each filter is applied as `Document.id IN (<field's matching ids>)`,
-    which composes safely regardless of `stmt`'s existing joins/columns since a
-    document has at most one row per (table, field_name). Raises ValueError for an
-    unknown field, an op that doesn't fit the field's type (e.g. "in" on a score
-    field), or a bound that fails to coerce (e.g. a non-ISO date string)."""
+    `values`. A "span" filter matches documents with at least one span in the span
+    field `field`, narrowed to spans labelled one of `values` and/or covering
+    exactly `text`. Each filter is applied as `Document.id IN (<field's matching
+    ids>)`, which composes safely regardless of `stmt`'s existing joins/columns
+    (and doesn't duplicate documents with many matching spans). Raises ValueError
+    for an unknown field, an op that doesn't fit the field's type (e.g. "in" on a
+    score field, or "span" on anything but a span field), or a bound that fails to
+    coerce (e.g. a non-ISO date string)."""
     for f in filters or []:
+        if f.op == "span":
+            stmt = stmt.where(Document.id.in_(_span_filter_subquery(session, f)))
+            continue
         table = _scalar_table_for_field(session, f.field)
         if table is None:
             raise ValueError(f"{f.field!r} is not a known field.")
@@ -419,3 +458,87 @@ def get_note(session: Session, document_id: str) -> str:
         raise KeyError(f"No document with id {document_id!r}.")
     note = session.get(Note, document_id)
     return note.text if note is not None else ""
+
+
+@dataclass
+class SpanLabelRow:
+    label: str
+    spans: int
+    documents: int
+
+
+@dataclass
+class SpanTextRow:
+    text: str
+    label: str
+    spans: int
+    documents: int
+
+
+@dataclass
+class SpanSummary:
+    labels: list[SpanLabelRow]
+    # The most frequent (text, label) pairs, up to the requested limit.
+    texts: list[SpanTextRow]
+    # How many (text, label) pairs matched in all, before the limit.
+    total_texts: int
+
+
+def summarize_spans(
+    session: Session,
+    field_name: str,
+    label: str | None = None,
+    query: str | None = None,
+    limit: int = 100,
+    filters: list[FieldFilter] | None = None,
+) -> SpanSummary:
+    """An overview of one span field, for finding documents by their spans: span
+    and document counts per label, and per distinct (covered text, label) pair, most
+    frequent first. `label` narrows the texts to one label, and `query` to those
+    containing it (case-insensitive); the label counts ignore both, so they stay a
+    stable overview. `filters` narrows which documents' spans are counted. Raises
+    ValueError if `field_name` isn't a span field, or `filters` is invalid."""
+    _require_span_field(session, field_name)
+    base = select(Span).join(Document, Document.id == Span.document_id).where(Span.field_name == field_name)
+    base = _apply_filters(session, base, filters)
+    spans = base.subquery()
+    n_docs = func.count(spans.c.document_id.distinct())
+
+    stmt = select(spans.c.label, func.count(), n_docs).group_by(spans.c.label).order_by(n_docs.desc(), spans.c.label)
+    labels = [SpanLabelRow(*row) for row in session.execute(stmt)]
+
+    texts = base.with_only_columns(
+        _span_text(Document).label("text"), Span.label.label("label"), Span.document_id.label("document_id")
+    )
+    if label is not None:
+        texts = texts.where(Span.label == label)
+    if query:
+        texts = texts.where(func.lower(_span_text(Document)).contains(query.lower(), autoescape=True))
+    texts = texts.subquery()
+    n_docs = func.count(texts.c.document_id.distinct())
+    grouped = select(texts.c.text, texts.c.label, func.count(), n_docs).group_by(texts.c.text, texts.c.label)
+    total = session.execute(select(func.count()).select_from(grouped.subquery())).scalar_one()
+    stmt = grouped.order_by(n_docs.desc(), func.count().desc(), texts.c.text, texts.c.label).limit(limit)
+    return SpanSummary(labels, [SpanTextRow(*row) for row in session.execute(stmt)], total)
+
+
+@dataclass
+class SpanRow:
+    field: str
+    start: int
+    end: int
+    label: str
+    score: float | None
+
+
+def list_document_spans(session: Session, document_id: str) -> list[SpanRow]:
+    """Every span on `document_id`, across all span fields, in text order. The
+    document must exist."""
+    if session.get(Document, document_id) is None:
+        raise KeyError(f"No document with id {document_id!r}.")
+    stmt = (
+        select(Span.field_name, Span.span_start, Span.span_end, Span.label, Span.score)
+        .where(Span.document_id == document_id)
+        .order_by(Span.span_start, Span.span_end, Span.span_id)
+    )
+    return [SpanRow(*row) for row in session.execute(stmt)]
