@@ -1,17 +1,17 @@
 import { Flex, Paper, Stack, Text } from '@mantine/core'
 
 import type { ColorScale } from '../colors'
-import { GroupDefinitionInfo } from './GroupDefinition'
-import type { GroupDefinitions } from './GroupDefinition'
+import { LabelDefinitionInfo } from './LabelDefinition'
+import type { LabelDefinitions } from './LabelDefinition'
 
-// The plot views' color key, overlaid in the top-right corner. Entries whose group
+// The plot views' color key, overlaid in the top-right corner. Entries whose label
 // has a definition get an info icon showing it on hover.
 export function ColorLegend({
   legend,
   definitions,
 }: {
   legend: ColorScale['legend']
-  definitions?: GroupDefinitions
+  definitions?: LabelDefinitions
 }) {
   return (
     <Paper
@@ -33,7 +33,7 @@ export function ColorLegend({
               }}
             />
             <Text size="xs">{entry.label}</Text>
-            <GroupDefinitionInfo
+            <LabelDefinitionInfo
               definitions={definitions}
               value={entry.label}
             />

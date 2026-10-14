@@ -14,9 +14,8 @@ from sqlalchemy.orm import Session
 
 from sourcetext.db.schema import (
     Document,
-    Group,
-    GroupDefinition,
     Label,
+    LabelDefinition,
     Note,
     Point2D,
     Score,
@@ -27,7 +26,7 @@ from sourcetext.db.schema import (
     Text,
 )
 
-_ScalarModel = TypeVar("_ScalarModel", Label, Score, Group, TemporalYear, TemporalDate, TemporalDatetime, Text)
+_ScalarModel = TypeVar("_ScalarModel", Label, Score, TemporalYear, TemporalDate, TemporalDatetime, Text)
 
 
 def add_documents(session: Session, ids: Sequence, texts: Sequence[str]) -> list[Document]:
@@ -73,12 +72,6 @@ def add_scores(session: Session, field_name: str, document_ids: Sequence, values
     return _add_scalar_field(session, Score, field_name, document_ids, values, cast=float)
 
 
-def add_groups(session: Session, field_name: str, document_ids: Sequence, values: Sequence) -> list[Group]:
-    """Insert one `Group` row per `(document_id, value)` pair under `field_name`.
-    `value` is the group id, stored as text so it lines up with GroupDefinition.group_id."""
-    return _add_scalar_field(session, Group, field_name, document_ids, values, cast=str)
-
-
 def add_text(session: Session, field_name: str, document_ids: Sequence, values: Sequence) -> list[Text]:
     """Insert one `Text` row per `(document_id, value)` pair under `field_name`."""
     return _add_scalar_field(session, Text, field_name, document_ids, values)
@@ -108,12 +101,12 @@ def add_temporal_datetimes(
     return _add_scalar_field(session, TemporalDatetime, field_name, document_ids, values)
 
 
-def add_group_definitions(session: Session, field_name: str, definitions: dict) -> list[GroupDefinition]:
-    """Insert one `GroupDefinition` row per `(group_id, definition)` pair, keyed by
-    which GroupType field (`field_name`) they belong to."""
+def add_label_definitions(session: Session, field_name: str, definitions: dict) -> list[LabelDefinition]:
+    """Insert one `LabelDefinition` row per `(value, definition)` pair, keyed by
+    which LabelType field (`field_name`) they belong to."""
     rows = [
-        GroupDefinition(field_name=field_name, group_id=str(group_id), definition=definition)
-        for group_id, definition in definitions.items()
+        LabelDefinition(field_name=field_name, value=str(value), definition=definition)
+        for value, definition in definitions.items()
     ]
     session.add_all(rows)
     return rows

@@ -14,7 +14,6 @@ IdValue: TypeAlias = str | int
 TextValue: TypeAlias = str
 LabelValue: TypeAlias = str | int | bool
 ScoreValue: TypeAlias = float | int
-GroupValue: TypeAlias = str | int
 SpanValue: TypeAlias = list[dict[str, str | int]]
 TemporalValue: TypeAlias = int | dt.date | dt.datetime
 Point2DValue: TypeAlias = tuple[float | int, float | int]
@@ -131,22 +130,18 @@ class TextType(_PrimaryType):
 
 
 class LabelType(_PrimaryType):
-    """Categorical classification output: colored badge, filter dropdown."""
+    """Categorical value: a class, cluster or topic assignment. Badge, "in" filter,
+    categorical plot axis/colour. Takes optional `definitions=` mapping each value
+    to what it means (e.g. a codebook entry, or a topic's keywords)."""
 
     value_types: ClassVar[tuple[type, ...]] = get_args(LabelValue)
+    definition_types: ClassVar[Optional[type]] = dict
 
 
 class ScoreType(_PrimaryType):
     """Numerical score: range slider/filter, sortable."""
 
     value_types: ClassVar[tuple[type, ...]] = get_args(ScoreValue)
-
-
-class GroupType(_PrimaryType):
-    """Cluster/topic assignment; pairs with an optional GroupDefinition."""
-
-    value_types: ClassVar[tuple[type, ...]] = get_args(GroupValue)
-    definition_types: ClassVar[Optional[type]] = dict
 
 
 class SpanType(_PrimaryType):

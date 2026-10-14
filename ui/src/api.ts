@@ -3,19 +3,18 @@ export interface Field {
   type:
     | 'label'
     | 'score'
-    | 'group'
     | 'temporal_year'
     | 'temporal_date'
     | 'temporal_datetime'
     | 'text'
     | 'point_2d'
-  // Filter metadata: distinct values for label/group fields (an "in" filter's
+  // Filter metadata: distinct values for label fields (an "in" filter's
   // candidates), or the min/max bound for score/temporal fields (a "range"
   // filter's domain). Temporal bounds are ISO date/datetime strings.
   values?: (string | number)[] | null
   min?: number | string | null
   max?: number | string | null
-  // Group fields only: what each group id means (arbitrary JSON per group).
+  // Label fields only: what each value means (arbitrary JSON per value).
   definitions?: Record<string, unknown> | null
 }
 
@@ -127,7 +126,7 @@ export interface StripQuery {
 }
 
 // A strip plot's points: one per document along a score field (`x`), split by a
-// label/group field (`row`), optionally colored by another (`color`).
+// label field (`row`), optionally colored by another (`color`).
 export async function fetchStrip(query: StripQuery): Promise<StripData> {
   const { filters, ...rest } = query
   const entries = Object.entries(rest).filter(
@@ -150,7 +149,7 @@ export interface CrosstabCell {
   count: number
 }
 
-// Document counts per value pair of two label/group fields (a confusion matrix).
+// Document counts per value pair of two label fields (a confusion matrix).
 export async function fetchCrosstab(
   rowField: string,
   colField: string,

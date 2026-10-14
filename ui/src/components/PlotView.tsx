@@ -20,7 +20,7 @@ import type {
 } from '../api'
 import { DocumentView } from './DocumentView'
 import { FieldFilters } from './FieldFilters'
-import type { GroupDefinitions } from './GroupDefinition'
+import type { LabelDefinitions } from './LabelDefinition'
 import { ScatterPlot } from './ScatterPlot'
 import { StripPlot } from './StripPlot'
 import type { StripOrientation } from './StripPlot'
@@ -30,7 +30,7 @@ type Mode = 'point2d' | 'fields'
 // What gets drawn: a scatterplot (point_2d field, or two score axes), or a strip
 // plot (one score axis, one categorical axis — a beeswarm per category, so
 // documents sharing a category don't stack on a line). Axis labels, orientation and
-// group definitions are captured with the request, so they always match the points
+// label definitions are captured with the request, so they always match the points
 // shown.
 type PlotData =
   | {
@@ -38,7 +38,7 @@ type PlotData =
       points: ScatterPoint[]
       xLabel: string
       yLabel: string
-      colorDefinitions: GroupDefinitions
+      colorDefinitions: LabelDefinitions
     }
   | {
       kind: 'strip'
@@ -46,8 +46,8 @@ type PlotData =
       orientation: StripOrientation
       scoreLabel: string
       categoryLabel: string
-      categoryDefinitions: GroupDefinitions
-      colorDefinitions: GroupDefinitions
+      categoryDefinitions: LabelDefinitions
+      colorDefinitions: LabelDefinitions
     }
 
 // Field names created by SourceText's classification presets: if present, they make
@@ -57,8 +57,7 @@ const PRESET_SCORE = 'predictions_confidence'
 const PRESET_CATEGORIES = ['gold_labels', 'predictions']
 const PRESET_COLOR = 'predictions'
 
-const isCategorical = (field: Field | undefined) =>
-  field?.type === 'label' || field?.type === 'group'
+const isCategorical = (field: Field | undefined) => field?.type === 'label'
 
 function pickDefault(names: string[], preferred: string[]): string | null {
   return preferred.find((name) => names.includes(name)) ?? names[0] ?? null
@@ -93,7 +92,7 @@ export function PlotView() {
           result.fields.filter((f) => type.includes(f.type)).map((f) => f.name)
         const point2d = names(['point_2d'])
         const scores = names(['score'])
-        const categories = names(['label', 'group'])
+        const categories = names(['label'])
 
         if (point2d.length > 0) setPointField(point2d[0])
         if (scores.length >= 2) {
@@ -226,7 +225,7 @@ export function PlotView() {
           {!hasPlottableFields && (
             <Text c="dimmed">
               Nothing to plot: needs a point_2d field, or a score field plus
-              another score, label or group field.
+              another score or label field.
             </Text>
           )}
           {hasPlottableFields && (

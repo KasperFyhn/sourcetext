@@ -1,7 +1,7 @@
 import random
 
 from sourcetext import SourceText
-from sourcetext.types import GroupType, Point2DType, ScoreType
+from sourcetext.types import LabelType, Point2DType, ScoreType
 
 _SUBJECTS = ["The curator", "A visiting scholar", "The conservator", "An unnamed donor", "The museum director"]
 _VERBS = ["catalogued", "restored", "appraised", "photographed", "mislabelled"]
@@ -28,7 +28,7 @@ _DEFINITIONS = {
 def make_source_text(n: int = 150, seed: int = 0) -> SourceText:
     """An embedding field (three visible clusters, with a few coincident points to
     exercise the scatter view's multipoint hover) plus two score fields for the
-    score-pair scatter mode, plus a group field (one group per cluster, with a few
+    score-pair scatter mode, plus a label field (one group per cluster, with a few
     documents left ungrouped, and keyword definitions) for the "color by group"
     feature."""
     rng = random.Random(seed)
@@ -58,5 +58,5 @@ def make_source_text(n: int = 150, seed: int = 0) -> SourceText:
         embedding=Point2DType(embedding),
         confidence=ScoreType(confidence),
         readability=ScoreType(readability),
-        collection=GroupType(collection, definitions=_DEFINITIONS),
+        collection=LabelType(collection, definitions=_DEFINITIONS),
     )

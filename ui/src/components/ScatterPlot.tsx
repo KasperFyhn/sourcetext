@@ -8,14 +8,14 @@ import { useMemo, useRef, useState } from 'react'
 import type { ScatterPoint } from '../api'
 import { buildColorScale } from '../colors'
 import { ColorLegend } from './ColorLegend'
-import type { GroupDefinitions } from './GroupDefinition'
+import type { LabelDefinitions } from './LabelDefinition'
 
 interface Props {
   points: ScatterPoint[]
   xLabel: string
   yLabel: string
-  // The color field's group definitions, shown on hovering a legend entry.
-  colorDefinitions?: GroupDefinitions
+  // The color field's label definitions, shown on hovering a legend entry.
+  colorDefinitions?: LabelDefinitions
   selectedId: string | null
   onSelect: (documentId: string) => void
 }

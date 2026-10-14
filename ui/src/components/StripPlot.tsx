@@ -7,8 +7,8 @@ import { useMemo, useState } from 'react'
 import type { StripPoint } from '../api'
 import { buildColorScale, NO_VALUE_LABEL } from '../colors'
 import { ColorLegend } from './ColorLegend'
-import { definitionOf, GroupDefinitionInfo } from './GroupDefinition'
-import type { GroupDefinitions } from './GroupDefinition'
+import { definitionOf, LabelDefinitionInfo } from './LabelDefinition'
+import type { LabelDefinitions } from './LabelDefinition'
 import { categoryKeys, computeDomain } from '../plotting'
 
 // Which axis holds the categories: 'horizontal' lays each category out as a row
@@ -21,10 +21,10 @@ interface Props {
   orientation: StripOrientation
   scoreLabel: string
   categoryLabel: string
-  // Group definitions of the category and color fields, shown via an info icon
+  // Label definitions of the category and color fields, shown via an info icon
   // after a category label or legend entry.
-  categoryDefinitions?: GroupDefinitions
-  colorDefinitions?: GroupDefinitions
+  categoryDefinitions?: LabelDefinitions
+  colorDefinitions?: LabelDefinitions
   selectedId: string | null
   onSelect: (documentId: string) => void
 }
@@ -237,7 +237,7 @@ function StripPlotInner({
                 fill="var(--mantine-color-text)"
               >
                 {b.key}
-                <GroupDefinitionInfo
+                <LabelDefinitionInfo
                   definitions={categoryDefinitions}
                   value={b.key}
                   svg

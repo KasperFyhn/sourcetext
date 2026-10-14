@@ -1,7 +1,7 @@
 import { Badge, Text } from '@mantine/core'
 
 import type { Field, FieldValue } from '../api'
-import { GroupDefinitionInfo } from './GroupDefinition'
+import { LabelDefinitionInfo } from './LabelDefinition'
 
 export function FieldValueView({
   field,
@@ -11,12 +11,12 @@ export function FieldValueView({
   value: FieldValue | undefined
 }) {
   if (value === undefined || value === null) return <Text c="dimmed">–</Text>
-  if (field.type === 'label' || field.type === 'group')
+  if (field.type === 'label')
     return (
       <Badge
         variant="light"
         rightSection={
-          <GroupDefinitionInfo definitions={field.definitions} value={value} />
+          <LabelDefinitionInfo definitions={field.definitions} value={value} />
         }
       >
         {value}

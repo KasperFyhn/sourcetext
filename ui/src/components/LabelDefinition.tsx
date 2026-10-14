@@ -1,11 +1,11 @@
 import { Code, HoverCard, Table, Text } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 
-// A group field's `{groupId: definition}` map; definitions are arbitrary JSON.
-export type GroupDefinitions = Record<string, unknown> | null | undefined
+// A label field's `{value: definition}` map; definitions are arbitrary JSON.
+export type LabelDefinitions = Record<string, unknown> | null | undefined
 
 export function definitionOf(
-  definitions: GroupDefinitions,
+  definitions: LabelDefinitions,
   value: unknown,
 ): unknown {
   if (value === null || value === undefined) return undefined
@@ -39,7 +39,7 @@ function isStringList(definition: unknown): definition is string[] {
   )
 }
 
-export function GroupDefinitionView({ definition }: { definition: unknown }) {
+export function LabelDefinitionView({ definition }: { definition: unknown }) {
   if (typeof definition === 'string')
     return (
       <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
@@ -75,15 +75,15 @@ export function GroupDefinitionView({ definition }: { definition: unknown }) {
   )
 }
 
-// An info icon that shows a group value's definition on hover; renders nothing if
+// An info icon that shows a label value's definition on hover; renders nothing if
 // the value has none. Placed next to the value, e.g. as a Badge's rightSection.
 // With `svg`, it renders as a "ⓘ" <tspan>, for inside an SVG <text> label.
-export function GroupDefinitionInfo({
+export function LabelDefinitionInfo({
   definitions,
   value,
   svg = false,
 }: {
-  definitions: GroupDefinitions
+  definitions: LabelDefinitions
   value: unknown
   svg?: boolean
 }) {
@@ -110,7 +110,7 @@ export function GroupDefinitionInfo({
         <Text size="xs" c="dimmed" mb={4}>
           {String(value)}
         </Text>
-        <GroupDefinitionView definition={definition} />
+        <LabelDefinitionView definition={definition} />
       </HoverCard.Dropdown>
     </HoverCard>
   )
