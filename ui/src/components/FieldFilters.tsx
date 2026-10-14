@@ -18,6 +18,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 
 import type { Field, FieldFilter } from '../api'
+import { GroupDefinitionInfo } from './GroupDefinition'
 
 interface Props {
   fields: Field[]
@@ -60,7 +61,11 @@ function LabelOrGroupFilter({ field, current, onChange }: ControlProps) {
         <Group gap={6} mih={36}>
           {options.map((option) => (
             <Chip key={option} value={option} size="xs" variant="outline">
-              {option}
+              {option}{' '}
+              <GroupDefinitionInfo
+                definitions={field.definitions}
+                value={option}
+              />
             </Chip>
           ))}
         </Group>

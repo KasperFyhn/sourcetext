@@ -111,7 +111,7 @@ for client-side coloring), `GET /api/documents/strip` (unpaginated
 /api/documents/crosstab` (`{row, col, count}` per value pair of the label/group
 fields `rowField=`/`colField=`, for the confusion matrix view; its cell's documents
 come from the tabular route with two "in" filters),
-`GET /api/documents/fields` (the full field list, for
+`GET /api/documents/fields` (the full field list, with group fields' `definitions`, for
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
 populate that detail pane on selection from a non-tabular view), `GET`/`PUT
@@ -146,5 +146,9 @@ UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
-**Not yet implemented**: span rendering and group-definition display in the UI —
-don't assume they work.
+**Not yet implemented**: span rendering in the UI — don't assume it works.
+
+**Group definitions** ride along on the field list (`FieldInfo.definitions`, also
+on the scatter route's plot fields), not a separate route. The UI shows them via
+`GroupDefinitionInfo` (`ui/src/components/GroupDefinition.tsx`), an info icon
+placed next to a group value wherever it appears.

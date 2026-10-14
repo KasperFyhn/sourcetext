@@ -55,11 +55,18 @@ def test_tabular_route_returns_fields_and_values(tmp_path):
 
     assert body["total"] == 3
     assert body["fields"] == [
-        {"name": "predictions", "type": "label", "values": ["a", "b"], "min": None, "max": None},
-        {"name": "confidence", "type": "score", "values": None, "min": 0.1, "max": 0.3},
-        {"name": "readability", "type": "score", "values": None, "min": 50.0, "max": 70.0},
-        {"name": "topic", "type": "group", "values": ["politics", "weather"], "min": None, "max": None},
-        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None},
+        {"name": "predictions", "type": "label", "values": ["a", "b"], "min": None, "max": None, "definitions": None},
+        {"name": "confidence", "type": "score", "values": None, "min": 0.1, "max": 0.3, "definitions": None},
+        {"name": "readability", "type": "score", "values": None, "min": 50.0, "max": 70.0, "definitions": None},
+        {
+            "name": "topic",
+            "type": "group",
+            "values": ["politics", "weather"],
+            "min": None,
+            "max": None,
+            "definitions": None,
+        },
+        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None, "definitions": None},
     ]
     assert [d["id"] for d in body["documents"]] == ["doc0", "doc1", "doc2"]
     assert body["documents"][1] == {
@@ -255,11 +262,11 @@ def test_scatter_route_lists_fields_with_no_query_params(tmp_path):
 
     assert body["points"] == []
     assert body["fields"] == [
-        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None},
-        {"name": "confidence", "type": "score", "values": None, "min": None, "max": None},
-        {"name": "readability", "type": "score", "values": None, "min": None, "max": None},
-        {"name": "predictions", "type": "label", "values": None, "min": None, "max": None},
-        {"name": "topic", "type": "group", "values": None, "min": None, "max": None},
+        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None, "definitions": None},
+        {"name": "confidence", "type": "score", "values": None, "min": None, "max": None, "definitions": None},
+        {"name": "readability", "type": "score", "values": None, "min": None, "max": None, "definitions": None},
+        {"name": "predictions", "type": "label", "values": None, "min": None, "max": None, "definitions": None},
+        {"name": "topic", "type": "group", "values": None, "min": None, "max": None, "definitions": None},
     ]
 
 
@@ -315,11 +322,18 @@ def test_fields_route_returns_full_field_list(tmp_path):
     body = _client(tmp_path).get("/api/documents/fields").json()
 
     assert body["fields"] == [
-        {"name": "predictions", "type": "label", "values": ["a", "b"], "min": None, "max": None},
-        {"name": "confidence", "type": "score", "values": None, "min": 0.1, "max": 0.3},
-        {"name": "readability", "type": "score", "values": None, "min": 50.0, "max": 70.0},
-        {"name": "topic", "type": "group", "values": ["politics", "weather"], "min": None, "max": None},
-        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None},
+        {"name": "predictions", "type": "label", "values": ["a", "b"], "min": None, "max": None, "definitions": None},
+        {"name": "confidence", "type": "score", "values": None, "min": 0.1, "max": 0.3, "definitions": None},
+        {"name": "readability", "type": "score", "values": None, "min": 50.0, "max": 70.0, "definitions": None},
+        {
+            "name": "topic",
+            "type": "group",
+            "values": ["politics", "weather"],
+            "min": None,
+            "max": None,
+            "definitions": None,
+        },
+        {"name": "embedding", "type": "point_2d", "values": None, "min": None, "max": None, "definitions": None},
     ]
 
 
@@ -549,3 +563,18 @@ def test_crosstab_route_rejects_non_categorical_field(tmp_path):
         "/api/documents/crosstab", params={"rowField": "predictions", "colField": "confidence"}
     )
     assert response.status_code == 400
+
+
+def test_fields_routes_include_group_definitions(tmp_path):
+    client = _client(tmp_path)
+    with app.state.db_sessionmaker() as session:
+        db.add_group_definitions(session, "topic", {"weather": "Rain and sun", "politics": {"vote": 0.4}})
+        session.commit()
+    expected = {"weather": "Rain and sun", "politics": {"vote": 0.4}}
+
+    fields = {f["name"]: f for f in client.get("/api/documents/fields").json()["fields"]}
+    assert fields["topic"]["definitions"] == expected
+    assert fields["predictions"]["definitions"] is None
+
+    plot_fields = {f["name"]: f for f in client.get("/api/documents/scatter").json()["fields"]}
+    assert plot_fields["topic"]["definitions"] == expected

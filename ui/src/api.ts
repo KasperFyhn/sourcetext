@@ -15,6 +15,8 @@ export interface Field {
   values?: (string | number)[] | null
   min?: number | string | null
   max?: number | string | null
+  // Group fields only: what each group id means (arbitrary JSON per group).
+  definitions?: Record<string, unknown> | null
 }
 
 export type FilterOp = 'in' | 'range' | 'contains'

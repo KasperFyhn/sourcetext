@@ -20,6 +20,7 @@ import type {
 } from '../api'
 import { DocumentView } from './DocumentView'
 import { FieldFilters } from './FieldFilters'
+import type { GroupDefinitions } from './GroupDefinition'
 import { ScatterPlot } from './ScatterPlot'
 import { StripPlot } from './StripPlot'
 import type { StripOrientation } from './StripPlot'
@@ -28,16 +29,25 @@ type Mode = 'point2d' | 'fields'
 
 // What gets drawn: a scatterplot (point_2d field, or two score axes), or a strip
 // plot (one score axis, one categorical axis — a beeswarm per category, so
-// documents sharing a category don't stack on a line). Axis labels and orientation
-// are captured with the request, so they always match the points shown.
+// documents sharing a category don't stack on a line). Axis labels, orientation and
+// group definitions are captured with the request, so they always match the points
+// shown.
 type PlotData =
-  | { kind: 'scatter'; points: ScatterPoint[]; xLabel: string; yLabel: string }
+  | {
+      kind: 'scatter'
+      points: ScatterPoint[]
+      xLabel: string
+      yLabel: string
+      colorDefinitions: GroupDefinitions
+    }
   | {
       kind: 'strip'
       points: StripPoint[]
       orientation: StripOrientation
       scoreLabel: string
       categoryLabel: string
+      categoryDefinitions: GroupDefinitions
+      colorDefinitions: GroupDefinitions
     }
 
 // Field names created by SourceText's classification presets: if present, they make
@@ -111,6 +121,9 @@ export function PlotView() {
   useEffect(() => {
     let stale = false
     const color = colorField ? { colorField } : {}
+    const definitionsOf = (name: string | null) =>
+      plotFields.find((f) => f.name === name)?.definitions
+    const colorDefinitions = definitionsOf(colorField)
     const filtersQuery = filters.length > 0 ? { filters } : {}
     let request: Promise<PlotData> | null = null
     if (mode === 'point2d' && pointField) {
@@ -123,6 +136,7 @@ export function PlotView() {
         points: r.points,
         xLabel: 'x',
         yLabel: 'y',
+        colorDefinitions,
       }))
     } else if (mode === 'fields' && xField && yField) {
       if (!xCategorical && !yCategorical) {
@@ -136,6 +150,7 @@ export function PlotView() {
           points: r.points,
           xLabel: xField,
           yLabel: yField,
+          colorDefinitions,
         }))
       } else if (xCategorical !== yCategorical) {
         const [scoreField, categoryField] = xCategorical
@@ -153,6 +168,8 @@ export function PlotView() {
           orientation: yCategorical ? 'horizontal' : 'vertical',
           scoreLabel: scoreField,
           categoryLabel: categoryField,
+          categoryDefinitions: definitionsOf(categoryField),
+          colorDefinitions,
         }))
       }
     }
@@ -173,6 +190,7 @@ export function PlotView() {
     yCategorical,
     colorField,
     filters,
+    plotFields,
   ])
 
   const handleSelect = (documentId: string) => {
@@ -281,6 +299,7 @@ export function PlotView() {
                   points={data.points}
                   xLabel={data.xLabel}
                   yLabel={data.yLabel}
+                  colorDefinitions={data.colorDefinitions}
                   selectedId={selected?.id ?? null}
                   onSelect={handleSelect}
                 />
@@ -291,6 +310,8 @@ export function PlotView() {
                   orientation={data.orientation}
                   scoreLabel={data.scoreLabel}
                   categoryLabel={data.categoryLabel}
+                  categoryDefinitions={data.categoryDefinitions}
+                  colorDefinitions={data.colorDefinitions}
                   selectedId={selected?.id ?? null}
                   onSelect={handleSelect}
                 />

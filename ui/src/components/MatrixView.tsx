@@ -129,6 +129,8 @@ export function MatrixView() {
 
   if (!fields) return null
 
+  const definitionsOf = (name: string) =>
+    fields.find((f) => f.name === name)?.definitions
   const categoryFields = fields
     .filter((f) => f.type === 'label' || f.type === 'group')
     .map((f) => f.name)
@@ -178,6 +180,8 @@ export function MatrixView() {
                 <ConfusionMatrix
                   rowField={rowField}
                   colField={colField}
+                  rowDefinitions={definitionsOf(rowField)}
+                  colDefinitions={definitionsOf(colField)}
                   cells={cells}
                   selected={cell}
                   onSelect={handleCellSelect}

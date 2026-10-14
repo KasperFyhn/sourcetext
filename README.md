@@ -154,7 +154,6 @@ and some parts are not built yet:
 
 - **Spans** (`SpanType`, e.g. NER output) are accepted and stored, but not yet
   highlighted in the text.
-- **Group definitions** are accepted and stored, but not yet shown in the app.
 
 See the [roadmap](https://github.com/KasperFyhn/sourcetext/blob/main/ROADMAP.md) for
 what's planned next.
@@ -248,7 +247,7 @@ SourceText(
 | `TextType`     | `str`                                                | shown as text                                                 | titles, authors, source metadata   |
 | `LabelType`    | `str`, `int`, `bool`                                 | badge; filter by value; plot axis or colour; confusion matrix | classifier output, gold labels     |
 | `ScoreType`    | `float`, `int`                                       | filter by range; plot axis                                    | confidence, sentiment, any metric  |
-| `GroupType`    | `str`, `int`                                         | badge; filter by value; plot axis or colour; confusion matrix | clusters, topics                   |
+| `GroupType`    | `str`, `int`                                         | as `LabelType`, plus its definition on hover                  | clusters, topics                   |
 | `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps       |
 | `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections |
 | `SpanType`     | list of `{"start", "end", "label"}` dicts            | *not yet displayed*                                           | named entities, marked passages    |
@@ -279,6 +278,12 @@ SourceText(texts, groups=GroupType(topics, definitions=keywords))
 # Custom group fields take definitions= directly:
 SourceText(texts, era=GroupType(eras, definitions={"early": "before 1850", "late": "1850 and after"}))
 ```
+
+In the app, a group with a definition is marked with an ⓘ wherever it appears
+(badges, filter options, plot legends and axes, confusion matrix headers): hover
+the ⓘ to see the definition.
+Keyword lists, as `[word, weight]` pairs or a `{word: weight}` dict, are shown as
+a table of words and weights.
 
 ## Notes
 

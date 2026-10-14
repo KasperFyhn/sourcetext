@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from sourcetext.db.schema import (
     Document,
     Group,
+    GroupDefinition,
     Label,
     Note,
     Point2D,
@@ -58,6 +59,9 @@ class FieldInfo:
     values: list[Any] | None = None
     min: Any | None = None
     max: Any | None = None
+    # Group fields only: `{group_id: definition}` from the field's `definitions=`,
+    # for the UI to show what each group means. None if the field has none.
+    definitions: dict[str, Any] | None = None
 
 
 @dataclass
@@ -125,6 +129,15 @@ def _value_bounds(session: Session, table) -> dict[str, tuple[Any, Any]]:
     return {name: (lo, hi) for name, lo, hi in session.execute(stmt)}
 
 
+def _group_definitions(session: Session) -> dict[str, dict[str, Any]]:
+    """`{field_name: {group_id: definition}}` for every group field with definitions."""
+    out: dict[str, dict[str, Any]] = {}
+    stmt = select(GroupDefinition.field_name, GroupDefinition.group_id, GroupDefinition.definition)
+    for name, group_id, definition in session.execute(stmt):
+        out.setdefault(name, {})[group_id] = definition
+    return out
+
+
 def list_fields(session: Session) -> list[FieldInfo]:
     """Every field name present in the DB, in insertion order within each type,
     decorated with filter metadata (see `FieldInfo`)."""
@@ -134,12 +147,13 @@ def list_fields(session: Session) -> list[FieldInfo]:
     range_bounds: dict[str, tuple[Any, Any]] = {}
     for table in _RANGE_COERCERS:
         range_bounds.update(_value_bounds(session, table))
+    definitions = _group_definitions(session)
 
     fields = []
     for kind, table in _SCALAR_TABLES:
         for name in _field_names(session, table):
             if table in _IN_TABLES:
-                fields.append(FieldInfo(name, kind, values=in_values.get(name)))
+                fields.append(FieldInfo(name, kind, values=in_values.get(name), definitions=definitions.get(name)))
             elif table in _RANGE_COERCERS:
                 lo, hi = range_bounds.get(name, (None, None))
                 fields.append(FieldInfo(name, kind, min=_serialize(lo), max=_serialize(hi)))
@@ -156,7 +170,8 @@ def list_plot_fields(session: Session) -> list[FieldInfo]:
     fields = [FieldInfo(name, "point_2d") for name in _field_names(session, Point2D)]
     fields += [FieldInfo(name, "score") for name in _field_names(session, Score)]
     fields += [FieldInfo(name, "label") for name in _field_names(session, Label)]
-    fields += [FieldInfo(name, "group") for name in _field_names(session, Group)]
+    definitions = _group_definitions(session)
+    fields += [FieldInfo(name, "group", definitions=definitions.get(name)) for name in _field_names(session, Group)]
     return fields
 
 
