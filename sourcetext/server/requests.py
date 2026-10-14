@@ -41,6 +41,10 @@ class NoteIn(CamelModel):
     text: str
 
 
+class NoteOut(CamelModel):
+    text: str
+
+
 class NotesFileIn(CamelModel):
     path: str
 

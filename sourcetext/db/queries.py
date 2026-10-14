@@ -411,3 +411,11 @@ def list_notes(session: Session) -> list[NoteRow]:
 def list_document_texts(session: Session) -> dict[str, str]:
     """`{document_id: text}` for every document."""
     return {document_id: text for document_id, text in session.execute(select(Document.id, Document.text))}
+
+
+def get_note(session: Session, document_id: str) -> str:
+    """The note on `document_id`, or "" if it has none. The document must exist."""
+    if session.get(Document, document_id) is None:
+        raise KeyError(f"No document with id {document_id!r}.")
+    note = session.get(Note, document_id)
+    return note.text if note is not None else ""

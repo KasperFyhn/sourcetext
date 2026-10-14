@@ -11,6 +11,7 @@ from sourcetext.server.requests import (
     FieldFilterIn,
     FieldsResponse,
     NoteIn,
+    NoteOut,
     ScatterResponse,
     StripResponse,
 )
@@ -153,6 +154,15 @@ async def get_document(document_id: str, request: Request):
         if document is None:
             raise HTTPException(status_code=404, detail=f"No document with id {document_id!r}.")
         return asdict(document)
+
+
+@router.get("/documents/{document_id}/note")
+async def get_note(document_id: str, request: Request) -> NoteOut:
+    with request.app.state.db_sessionmaker() as session:
+        try:
+            return NoteOut(text=db.get_note(session, document_id))
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"No document with id {document_id!r}.")
 
 
 @router.put("/documents/{document_id}/note", status_code=204)

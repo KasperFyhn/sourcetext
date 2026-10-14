@@ -34,7 +34,6 @@ export interface Document {
   id: string
   text: string
   values: Record<string, FieldValue>
-  note: string
 }
 
 export interface DocumentsPage {
@@ -174,6 +173,15 @@ export async function fetchDocument(documentId: string): Promise<Document> {
   const res = await fetch(`/api/documents/${encodeURIComponent(documentId)}`)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json() as Promise<Document>
+}
+
+export async function fetchNote(documentId: string): Promise<string> {
+  const res = await fetch(
+    `/api/documents/${encodeURIComponent(documentId)}/note`,
+  )
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const body = (await res.json()) as { text: string }
+  return body.text
 }
 
 export async function saveNote(

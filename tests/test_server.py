@@ -4,7 +4,7 @@ import json
 from fastapi.testclient import TestClient
 
 import sourcetext.db as db
-from sourcetext.notes import NotesFile
+from sourcetext.notes import NotesFile, text_hash
 from sourcetext.server.app import app
 
 
@@ -350,6 +350,42 @@ def test_note_is_saved_replaced_and_returned(tmp_path):
 
 def test_note_for_unknown_document_is_404(tmp_path):
     assert _client(tmp_path).put("/api/documents/nope/note", json={"text": "x"}).status_code == 404
+
+
+def test_get_note_before_and_after_saving(tmp_path):
+    client = _client(tmp_path)
+
+    assert client.get("/api/documents/doc1/note").json() == {"text": ""}
+    client.put("/api/documents/doc1/note", json={"text": "a note"})
+    assert client.get("/api/documents/doc1/note").json() == {"text": "a note"}
+
+
+def test_get_note_for_unknown_document_is_404(tmp_path):
+    assert _client(tmp_path).get("/api/documents/nope/note").status_code == 404
+
+
+def test_get_note_finds_notes_matched_by_text_hash(tmp_path):
+    # Records written for another corpus order: their ids don't match, their text hashes do.
+    create_session = db.get_sessionmaker(f"duckdb:///{tmp_path / 'hash.duckdb'}")
+    with create_session() as session:
+        db.add_documents(session, ["d0", "d1", "d2", "d3"], ["alpha", "beta", "alpha", "gamma"])
+        session.commit()
+    app.state.db_sessionmaker = create_session
+    app.state.notes_file = NotesFile(match_by="text")
+    client = TestClient(app)
+    notes_path = tmp_path / "notes.jsonl"
+    stamp = "2026-01-01T00:00:00+00:00"
+    notes_path.write_text(
+        "".join(
+            json.dumps({"document_id": old_id, "text_hash": text_hash(text), "note": note, "updated_at": stamp}) + "\n"
+            for old_id, text, note in [("old-7", "alpha", "alpha note"), ("old-1", "gamma", "gamma note")]
+        )
+    )
+
+    assert client.put("/api/notes/file", json={"path": str(notes_path)}).status_code == 200
+
+    notes = {i: client.get(f"/api/documents/{i}/note").json()["text"] for i in ["d0", "d1", "d2", "d3"]}
+    assert notes == {"d0": "alpha note", "d1": "", "d2": "alpha note", "d3": "gamma note"}
 
 
 def test_note_without_a_notes_file_is_409(tmp_path):

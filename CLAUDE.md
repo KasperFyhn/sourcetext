@@ -114,9 +114,10 @@ come from the tabular route with two "in" filters),
 `GET /api/documents/fields` (the full field list, for
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
-populate that detail pane on selection from a non-tabular view), `PUT
+populate that detail pane on selection from a non-tabular view), `GET`/`PUT
 /api/documents/{id}/note` (notes live in the `notes` table, which is not a typed
-field; an empty note deletes the row), and `GET`/`PUT /api/notes/file` (where notes
+field; an empty note deletes the row; the UI's `DocumentNotes` component loads and
+saves through these rather than reading `note` off the document payloads), and `GET`/`PUT /api/notes/file` (where notes
 are saved).
 
 **Notes persistence**: notes are the only user-created data, so they're the only

@@ -1,18 +1,7 @@
-import {
-  Box,
-  Flex,
-  Group,
-  Stack,
-  Text,
-  Textarea,
-  Title,
-  Tooltip,
-  UnstyledButton,
-} from '@mantine/core'
+import { Box, Flex, Group, Stack, Text, Title } from '@mantine/core'
 
 import type { Document, Field } from '../api'
-import { useNotesFile } from '../contexts/NotesFileContext'
-import { useDocumentNotes } from '../hooks/useDocumentNotes'
+import { DocumentNotes } from './DocumentNotes'
 import { FieldValueView } from './FieldValueView'
 
 interface Props {
@@ -21,10 +10,6 @@ interface Props {
 }
 
 export function DocumentView({ fields, document }: Props) {
-  const { status, openDialog } = useNotesFile()
-  const { currentNotes, handleNotesChange, handleNotesSave, error } =
-    useDocumentNotes(document)
-
   return (
     <Box
       flex={2}
@@ -57,40 +42,7 @@ export function DocumentView({ fields, document }: Props) {
             ))}
           </Group>
           <Text style={{ whiteSpace: 'pre-wrap' }}>{document.text}</Text>
-          <Textarea
-            label={
-              <Group gap="xs">
-                Notes
-                <Tooltip
-                  label={
-                    status?.path
-                      ? `Saved to ${status.path}. Click to change.`
-                      : 'Notes are saved to a file. Click to choose one.'
-                  }
-                >
-                  <UnstyledButton onClick={openDialog}>
-                    <Text size="xs" c="dimmed">
-                      {status?.path
-                        ? `saved to ${status.path.split(/[\\/]/).pop()}`
-                        : 'Select notes file ...'}
-                    </Text>
-                  </UnstyledButton>
-                </Tooltip>
-              </Group>
-            }
-            placeholder={
-              status?.path
-                ? 'Write your interpretation of this document...'
-                : 'Select a notes file to start taking notes.'
-            }
-            disabled={!status?.path}
-            error={error}
-            autosize
-            minRows={4}
-            value={currentNotes}
-            onChange={(event) => handleNotesChange(event.currentTarget.value)}
-            onBlur={handleNotesSave}
-          />
+          <DocumentNotes key={document.id} documentId={document.id} />
         </Stack>
       )}
     </Box>
