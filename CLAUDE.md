@@ -111,11 +111,10 @@ for client-side coloring), `GET /api/documents/strip` (unpaginated
 /api/documents/crosstab` (`{row, col, count}` per value pair of the label/group
 fields `rowField=`/`colField=`, for the confusion matrix view; its cell's documents
 come from the tabular route with two "in" filters), `GET /api/spans` (the span
-view: span/document counts per label and per distinct covered text of the span field
-`field=`, default the first; narrow the texts with `label=`/`q=`, and the documents
-counted with `filters=`; its documents come from the tabular route with a `"span"`
-filter, `{field, op: "span", values?: [labels], text?: exact covered text}`), `GET
-/api/documents/{id}/spans` (one document's spans, for highlighting),
+view: span/document counts per label and per span type of the span field `field=`,
+default the first; its documents come from the tabular route with the same
+`filters=` plus the selected type's `typeText`), `GET /api/documents/{id}/spans`
+(one document's spans, for the document pane's badges and highlights),
 `GET /api/documents/fields` (the full field list, for
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
@@ -151,6 +150,15 @@ UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
-**Not yet implemented**: rendering all of a document's spans (the span view only
-highlights those it navigated by) and group-definition display in the UI — don't
-assume they work.
+**Spans**: a span has `start`/`end` and nullable `label`, `score`, `norm_text`. Its
+*span text* is what it covers; its *type text* is `norm_text ?? span text`; a *span
+type* is (field, type text, label), shown as a badge, and its spans (tokens) are
+what gets highlighted. A `"span"` filter (`{field, op: "span", values?: labels
+(null: unlabelled), min?/max?: score, text?: contains in span or norm text,
+typeText?: exact}`) matches documents with a matching span *and* prunes that
+field's spans everywhere (table values, `/api/spans` counts, document spans) — see
+`_span_conditions`/`_active_span_conditions` in `db/queries.py`. A span field's
+table value is its per-document type counts (`[{text, label, count}]`).
+
+**Not yet implemented**: rendering all of a document's spans at once, coloured by
+label, and group-definition display in the UI — don't assume they work.

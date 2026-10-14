@@ -44,7 +44,8 @@ the background, so you can keep working and call `st.stop_server()` when done.
 ## What you get
 
 - **Table view.** Every document with its fields as columns. Sort by any column,
-  and filter by label, group, score range or date range.
+  and filter by label, group, score range, date range or spans (their label,
+  score and text).
 - **Plot view.** Plot documents by a 2D embedding projection (e.g. UMAP), or put
   any two fields on the axes, optionally coloured by a label or group. Two scores
   give a scatter plot, useful for spotting where a model's confidence and a second
@@ -53,12 +54,13 @@ the background, so you can keep working and call `st.stop_server()` when done.
 - **Confusion matrix view.** Cross two labels or groups (e.g. gold labels and
   predictions) and click a cell to list its documents, which you can then filter
   further by their other fields.
-- **Span view.** Find documents by their span annotations (e.g. NER output). Pick
-  a span label to list the documents containing one, or search the texts spans
-  cover and pick one (e.g. every "Paris" tagged `PER`) to list its documents. The
-  matching spans are highlighted in the document pane.
+- **Span view.** Find documents by their span annotations (e.g. NER output).
+  Narrow the spans by label, score and text, then pick a span type (e.g. "Paris"
+  tagged `PER`, with every surface form normalized to it) to list the documents
+  containing it, with its occurrences highlighted.
 - **Document pane.** Select a document in any view to read its full text
-  alongside all of its field values.
+  alongside all of its field values. Its spans are listed beside the text as
+  badges; click one to highlight its occurrences.
 - **Notes.** Write a free-text note on any document while you read it. Notes are
   saved to a plain JSONL file you choose, so they survive between sessions.
 
@@ -141,7 +143,8 @@ from sourcetext import SourceText, SpanType
 
 nlp = spacy.load("en_core_web_sm")
 entities = [
-    [{"start": e.start_char, "end": e.end_char, "label": e.label_} for e in doc.ents] for doc in nlp.pipe(texts)
+    [{"start": e.start_char, "end": e.end_char, "label": e.label_, "norm_text": e.lemma_} for e in doc.ents]
+    for doc in nlp.pipe(texts)
 ]
 
 st = SourceText(texts, entities=SpanType(entities))
@@ -149,7 +152,8 @@ st.start_server()
 ```
 
 In the span view, search for a name to see every label the model gave it, then
-pick the unexpected one to read those documents with the spans highlighted.
+pick the unexpected one to read those documents with the spans highlighted. Raise
+the minimum score (if your spans have one) to see what survives a threshold.
 
 ### From a DataFrame, with metadata
 
@@ -174,9 +178,8 @@ st.start_server()
 sourcetext is in early development (alpha). The API may change between releases,
 and some parts are not built yet:
 
-- **Spans** (`SpanType`, e.g. NER output) can be searched in the span view, which
-  highlights the spans it found a document by, but the text isn't yet shown with
-  all of its spans marked.
+- **Spans** (`SpanType`, e.g. NER output) are listed, filtered and highlighted on
+  click, but not yet shown all at once in the text, coloured by label.
 - **Group definitions** are accepted and stored, but not yet shown in the app.
 
 See the [roadmap](https://github.com/KasperFyhn/sourcetext/blob/main/ROADMAP.md) for
@@ -274,17 +277,22 @@ SourceText(
 | `GroupType`    | `str`, `int`                                         | badge; filter by value; plot axis or colour; confusion matrix | clusters, topics                   |
 | `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps       |
 | `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections |
-| `SpanType`     | list of `{"start", "end", "label"}` dicts            | span view: find documents by span label or covered text       | named entities, marked passages    |
+| `SpanType`     | list of `{"start", "end"}` dicts, see below          | badges; filter by label, score, text; span view               | named entities, marked passages    |
 
-All columns in the table view are sortable.
+All columns in the table view are sortable, except 2D points and spans.
 
 Notes on specific types:
 
 - **`TemporalType`**: all values in one field must share a type. Plain ints are
   treated as years.
 - **`SpanType`**: each document gets a list of spans (possibly empty). `start` and
-  `end` are character offsets into the text, `label` is a string, and an optional
-  `score` may be included.
+  `end` are character offsets into the text. Optionally, a span has a `label`
+  (string), a `score` (number) and a `norm_text` (string: a normalized form of the
+  text it covers, e.g. an entity's canonical name); each may be missing or `None`.
+  Spans with the same `norm_text` (or covered text, without one) and label are
+  shown as one badge, e.g. `Barack Obama PER ×2` for "Obama" and "Barack Obama".
+  Filtering spans by label, score or text also hides the spans that don't match
+  from badges, counts and highlights.
 - **`Point2DType`**: to plot two separate scores against each other instead, just
   pass them as two `ScoreType` fields and pick both as axes in the plot view.
 

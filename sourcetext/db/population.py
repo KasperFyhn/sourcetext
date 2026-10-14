@@ -146,8 +146,9 @@ def add_spans(session: Session, field_name: str, document_ids: Sequence, values:
             field_name=field_name,
             span_start=span["start"],
             span_end=span["end"],
-            label=span["label"],
+            label=span.get("label"),
             score=span.get("score"),
+            norm_text=span.get("norm_text"),
         )
         for doc_id, doc_spans in zip(document_ids, values)
         for span in (doc_spans or [])

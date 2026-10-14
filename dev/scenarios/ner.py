@@ -3,9 +3,26 @@ import random
 from sourcetext import SourceText
 from sourcetext.types import LabelType, SpanType
 
-_PEOPLE = ["Ada Lovelace", "Charles Babbage", "Mary Shelley", "Lord Byron", "Ørsted"]
-_PLACES = ["London", "Paris", "Geneva", "København", "Edinburgh"]
-_ORGS = ["the Royal Society", "the British Museum", "the Academy"]
+# Canonical names (the norm text) and the surface forms they appear as.
+_PEOPLE = {
+    "Ada Lovelace": ["Ada Lovelace", "Lovelace", "Ada"],
+    "Charles Babbage": ["Charles Babbage", "Babbage"],
+    "Mary Shelley": ["Mary Shelley", "Shelley"],
+    "Lord Byron": ["Lord Byron", "Byron"],
+    "Hans Christian Ørsted": ["Ørsted", "H.C. Ørsted"],
+}
+_PLACES = {
+    "London": ["London"],
+    "Paris": ["Paris"],
+    "Geneva": ["Geneva", "Genève"],
+    "Copenhagen": ["København", "Copenhagen"],
+    "Edinburgh": ["Edinburgh"],
+}
+_ORGS = {
+    "Royal Society": ["the Royal Society"],
+    "British Museum": ["the British Museum"],
+    "Academy": ["the Academy"],
+}
 _TEMPLATES = [
     "{per} wrote to {org} from {loc}.",
     "In {loc}, {per} met {per2}.",
@@ -14,34 +31,40 @@ _TEMPLATES = [
 ]
 
 
+def _mention(rng: random.Random, label: str, names: dict[str, list[str]]) -> tuple[str, dict]:
+    """A surface form of a random name, and its span annotation minus offsets: the
+    norm text when it differs from the surface form, and a score. Like model output,
+    a label is sometimes wrong or missing, and a score sometimes missing."""
+    norm = rng.choice(list(names))
+    surface = rng.choice(names[norm])
+    roll = rng.random()
+    if roll < 0.08:
+        label = rng.choice(["PER", "LOC", "ORG", "MISC"])
+    elif roll < 0.12:
+        label = None
+    span = {"label": label, "score": round(rng.random(), 2) if rng.random() < 0.9 else None}
+    if surface != norm:
+        span["norm_text"] = norm
+    return surface, span
+
+
 def _fill(rng: random.Random, template: str) -> tuple[str, list[dict]]:
-    """Fill a template, recording each placeholder's span. Sometimes mislabels a
-    span, as a model would."""
-    values = {
-        "per": ("PER", rng.choice(_PEOPLE)),
-        "per2": ("PER", rng.choice(_PEOPLE)),
-        "loc": ("LOC", rng.choice(_PLACES)),
-        "loc2": ("LOC", rng.choice(_PLACES)),
-        "org": ("ORG", rng.choice(_ORGS)),
-    }
+    """Fill a template, recording each placeholder's span."""
+    sources = {"per": ("PER", _PEOPLE), "loc": ("LOC", _PLACES), "org": ("ORG", _ORGS)}
     text, spans, rest = "", [], template
     while "{" in rest:
         before, _, after = rest.partition("{")
         key, _, rest = after.partition("}")
-        label, value = values[key]
+        surface, span = _mention(rng, *sources[key.rstrip("2")])
         text += before
-        if rng.random() < 0.1:
-            label = rng.choice(["PER", "LOC", "ORG", "MISC"])
-        spans.append(
-            {"start": len(text), "end": len(text) + len(value), "label": label, "score": round(rng.random(), 2)}
-        )
-        text += value
+        spans.append({"start": len(text), "end": len(text) + len(surface), **span})
+        text += surface
     text += rest
     return text[0].upper() + text[1:], spans
 
 
 def make_source_text(n: int = 300, seed: int = 0) -> SourceText:
-    """NER-style span annotations, plus a document label to filter by."""
+    """NER-style span annotations with norm texts, plus a document label to filter by."""
     rng = random.Random(seed)
     docs = [_fill(rng, rng.choice(_TEMPLATES)) for _ in range(n)]
     return SourceText(

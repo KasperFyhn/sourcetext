@@ -56,7 +56,26 @@ def test_span_type_rejects_invalid_offsets():
 
 def test_span_type_rejects_missing_keys():
     with pytest.raises(TypeError):
-        SpanType([[{"start": 0, "end": 2}]]).resolve()
+        SpanType([[{"start": 0, "label": "X"}]]).resolve()
+
+
+def test_span_type_allows_missing_or_none_optional_keys():
+    spans = [[{"start": 0, "end": 2}, {"start": 0, "end": 2, "label": None, "score": None, "norm_text": None}]]
+    assert SpanType(spans).resolve() == spans
+
+
+def test_span_type_accepts_score_and_norm_text():
+    spans = [[{"start": 0, "end": 2, "label": "X", "score": 0.5, "norm_text": "x"}]]
+    assert SpanType(spans).resolve() == spans
+
+
+@pytest.mark.parametrize(
+    "key, value",
+    [("label", 1), ("score", "high"), ("score", True), ("norm_text", 3)],
+)
+def test_span_type_rejects_wrong_typed_optional_keys(key, value):
+    with pytest.raises(TypeError):
+        SpanType([[{"start": 0, "end": 2, key: value}]]).resolve()
 
 
 def test_span_type_rejects_non_list_value():

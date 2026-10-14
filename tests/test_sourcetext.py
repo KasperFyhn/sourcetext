@@ -124,6 +124,13 @@ def test_span_type_field():
     assert [r.document_id for r in rows] == ["0", "2"]
 
 
+def test_span_type_field_stores_optional_keys():
+    spans = [[{"start": 0, "end": 3, "norm_text": "cat", "score": 0.5}], [], []]
+    st = SourceText(TEXTS, ner=SpanType(spans))
+    row = st._session.query(Span).one()
+    assert (row.label, row.score, row.norm_text) == (None, 0.5, "cat")
+
+
 def test_text_field():
     st = SourceText(TEXTS, editorial_note=TextType(["n1", "n2", "n3"]))
     rows = st._session.query(Text).order_by(Text.id).all()
