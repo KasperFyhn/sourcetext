@@ -11,6 +11,7 @@ from sourcetext.server.requests import (
     FieldFilterIn,
     FieldsResponse,
     NoteIn,
+    NoteOut,
     ScatterResponse,
     StripResponse,
 )
@@ -155,11 +156,30 @@ async def get_document(document_id: str, request: Request):
         return asdict(document)
 
 
+@router.get("/documents/{document_id}/note")
+async def get_note(document_id: str, request: Request) -> NoteOut:
+    with request.app.state.db_sessionmaker() as session:
+        try:
+            return NoteOut(text=db.get_note(session, document_id))
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"No document with id {document_id!r}.")
+
+
 @router.put("/documents/{document_id}/note", status_code=204)
 async def put_note(document_id: str, note: NoteIn, request: Request) -> None:
+    notes_file = request.app.state.notes_file
+    if notes_file.path is None:
+        raise HTTPException(status_code=409, detail="Choose a notes file before writing notes.")
     with request.app.state.db_sessionmaker() as session:
         try:
             db.set_note(session, document_id, note.text)
         except KeyError:
             raise HTTPException(status_code=404, detail=f"No document with id {document_id!r}.")
+        # Written to the file before committing, so a note that couldn't be saved
+        # to the file isn't kept in memory either.
+        try:
+            notes_file.save(session)
+        except OSError as e:
+            session.rollback()
+            raise HTTPException(status_code=500, detail=f"Could not write {notes_file.path}: {e}")
         session.commit()

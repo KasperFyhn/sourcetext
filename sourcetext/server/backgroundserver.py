@@ -16,8 +16,9 @@ class BackgroundServer:
     block until completion, avoiding race conditions.
     """
 
-    def __init__(self, sessionmaker, port: int = 8001):
+    def __init__(self, sessionmaker, notes_file, port: int = 8001):
         self._sessionmaker = sessionmaker
+        self._notes_file = notes_file
         self._port = port
 
         self._server = None
@@ -30,6 +31,7 @@ class BackgroundServer:
 
         try:
             app.state.db_sessionmaker = self._sessionmaker  # noqa
+            app.state.notes_file = self._notes_file  # noqa
             await server.serve()
         except (asyncio.CancelledError, KeyboardInterrupt):
             logging.info("Server stopped")

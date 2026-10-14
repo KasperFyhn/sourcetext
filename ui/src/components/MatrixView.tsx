@@ -24,7 +24,6 @@ import type {
   FieldFilter,
   Sort,
 } from '../api'
-import { useDocumentNotes } from '../hooks/useDocumentNotes'
 import { ConfusionMatrix } from './ConfusionMatrix'
 import type { MatrixCell } from './ConfusionMatrix'
 import { DocumentTable } from './DocumentTable'
@@ -51,10 +50,6 @@ export function MatrixView() {
   const [documents, setDocuments] = useState<DocumentsPage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)
-  const { currentNotes, handleNotesChange, handleNotesSave } = useDocumentNotes(
-    selected,
-    setError,
-  )
 
   useEffect(() => {
     fetchFields()
@@ -228,22 +223,7 @@ export function MatrixView() {
           )}
         </Stack>
       </Box>
-      <Box
-        flex={2}
-        p="md"
-        style={{
-          overflowY: 'auto',
-          borderLeft: '1px solid var(--mantine-color-default-border)',
-        }}
-      >
-        <DocumentView
-          fields={fields}
-          document={selected}
-          notes={currentNotes}
-          onNotesSave={handleNotesSave}
-          onNotesChange={handleNotesChange}
-        />
-      </Box>
+      <DocumentView fields={fields} document={selected} />
     </Flex>
   )
 }

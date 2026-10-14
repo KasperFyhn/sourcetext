@@ -18,7 +18,6 @@ import type {
   ScatterPoint,
   StripPoint,
 } from '../api'
-import { useDocumentNotes } from '../hooks/useDocumentNotes'
 import { DocumentView } from './DocumentView'
 import { FieldFilters } from './FieldFilters'
 import { ScatterPlot } from './ScatterPlot'
@@ -70,10 +69,6 @@ export function PlotView() {
   const [data, setData] = useState<PlotData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)
-  const { currentNotes, handleNotesChange, handleNotesSave } = useDocumentNotes(
-    selected,
-    setError,
-  )
 
   // Load the full field list and the plottable fields once, then choose sensible
   // defaults for the mode/axis selectors.
@@ -304,22 +299,7 @@ export function PlotView() {
           )}
         </Stack>
       </Box>
-      <Box
-        flex={2}
-        p="md"
-        style={{
-          overflowY: 'auto',
-          borderLeft: '1px solid var(--mantine-color-default-border)',
-        }}
-      >
-        <DocumentView
-          fields={fields}
-          document={selected}
-          notes={currentNotes}
-          onNotesSave={handleNotesSave}
-          onNotesChange={handleNotesChange}
-        />
-      </Box>
+      <DocumentView fields={fields} document={selected} />
     </Flex>
   )
 }

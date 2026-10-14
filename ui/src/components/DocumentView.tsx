@@ -1,54 +1,50 @@
-import { Flex, Group, Stack, Text, Textarea, Title } from '@mantine/core'
+import { Box, Flex, Group, Stack, Text, Title } from '@mantine/core'
 
 import type { Document, Field } from '../api'
+import { DocumentNotes } from './DocumentNotes'
 import { FieldValueView } from './FieldValueView'
 
 interface Props {
   fields: Field[]
   document: Document | null
-  notes: string
-  onNotesChange: (notes: string) => void
-  onNotesSave: () => void
 }
 
-export function DocumentView({
-  fields,
-  document,
-  notes,
-  onNotesChange,
-  onNotesSave,
-}: Props) {
-  if (!document)
-    return <Text c="dimmed">Select a document in the table to view it.</Text>
-
+export function DocumentView({ fields, document }: Props) {
   return (
-    <Stack>
-      <Title order={2}>Document {document.id}</Title>
-      <Group align="stretch">
-        {fields.map((field) => (
-          <Stack key={field.name} gap={2}>
-            <Text size="xs" c="dimmed">
-              {field.name}
-            </Text>
-            <Flex align="center" flex={1}>
-              <FieldValueView
-                field={field}
-                value={document.values[field.name]}
-              />
-            </Flex>
-          </Stack>
-        ))}
-      </Group>
-      <Text style={{ whiteSpace: 'pre-wrap' }}>{document.text}</Text>
-      <Textarea
-        label="Notes"
-        placeholder="Write your interpretation of this document..."
-        autosize
-        minRows={4}
-        value={notes}
-        onChange={(event) => onNotesChange(event.currentTarget.value)}
-        onBlur={onNotesSave}
-      />
-    </Stack>
+    <Box
+      flex={2}
+      p="md"
+      style={{
+        overflowY: 'auto',
+        borderLeft: '1px solid var(--mantine-color-default-border)',
+      }}
+    >
+      {!document ? (
+        <Text c="dimmed">
+          Select a document in the navigation pane to view it.
+        </Text>
+      ) : (
+        <Stack>
+          <Title order={2}>Document {document.id}</Title>
+          <Group align="stretch">
+            {fields.map((field) => (
+              <Stack key={field.name} gap={2}>
+                <Text size="xs" c="dimmed">
+                  {field.name}
+                </Text>
+                <Flex align="center" flex={1}>
+                  <FieldValueView
+                    field={field}
+                    value={document.values[field.name]}
+                  />
+                </Flex>
+              </Stack>
+            ))}
+          </Group>
+          <Text style={{ whiteSpace: 'pre-wrap' }}>{document.text}</Text>
+          <DocumentNotes key={document.id} documentId={document.id} />
+        </Stack>
+      )}
+    </Box>
   )
 }

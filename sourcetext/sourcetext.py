@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import os
+import warnings
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Any, TypeAlias
 
 import pandas as pd
 
 import sourcetext.db as db
+from sourcetext.notes import DEFAULT_FILENAME, NotesFile
 from sourcetext.server.backgroundserver import BackgroundServer
 from sourcetext.types import (
     GroupType,
@@ -42,6 +46,7 @@ class SourceText:
         scores: ColumnName | Iterable[ScoreValue] | ScoreType | None = None,
         groups: ColumnName | Iterable[LabelValue] | LabelType | None = None,
         group_definitions: dict[str, Any] = None,
+        notes_file: str | os.PathLike | None = None,
         **fields: LabelType | ScoreType | GroupType | TemporalType | Point2DType,
     ) -> None:
         self._validate_mode(texts, data)
@@ -128,6 +133,22 @@ class SourceText:
 
         self.doc_ids = doc_ids
 
+        # Notes are matched back to documents by id only when the user chose the ids;
+        # default ids are row positions, which change if the data is reordered.
+        if notes_file is None and (Path.cwd() / DEFAULT_FILENAME).is_file():
+            # The app's default notes file, from an earlier session: pick it up, so
+            # those notes don't look lost when the same code runs again.
+            notes_file = Path.cwd() / DEFAULT_FILENAME
+            warnings.warn(
+                f"Saving notes to {notes_file}, found in the working directory. "
+                "Pass `notes_file=` to use another file.",
+                stacklevel=2,
+            )
+        self._notes_file = NotesFile(notes_file, match_by="id" if ids is not None else "text")
+        report = self._notes_file.load(self._session)
+        self._session.commit()
+        report.warn()
+
         self._server = None
 
     @staticmethod
@@ -157,7 +178,7 @@ class SourceText:
                 auto-detect based on whether an event loop is already running.
         """
 
-        self._server = BackgroundServer(self._create_session, port=port)
+        self._server = BackgroundServer(self._create_session, self._notes_file, port=port)
         self._server.start(block=block)
 
     def stop_server(self):
