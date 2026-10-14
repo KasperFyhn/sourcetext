@@ -1,4 +1,4 @@
-import { Flex, Paper, Stack, Text } from '@mantine/core'
+import { Paper, Text } from '@mantine/core'
 import { AxisBottom, AxisLeft } from '@visx/axis'
 import { ParentSize } from '@visx/responsive'
 import { scaleLinear } from '@visx/scale'
@@ -6,6 +6,9 @@ import { useMemo, useState } from 'react'
 
 import type { StripPoint } from '../api'
 import { buildColorScale, NO_VALUE_LABEL } from '../colors'
+import { ColorLegend } from './ColorLegend'
+import { definitionOf, LabelDefinitionInfo } from './LabelDefinition'
+import type { LabelDefinitions } from './LabelDefinition'
 import { categoryKeys, computeDomain } from '../plotting'
 
 // Which axis holds the categories: 'horizontal' lays each category out as a row
@@ -18,6 +21,10 @@ interface Props {
   orientation: StripOrientation
   scoreLabel: string
   categoryLabel: string
+  // Label definitions of the category and color fields, shown via an info icon
+  // after a category label or legend entry.
+  categoryDefinitions?: LabelDefinitions
+  colorDefinitions?: LabelDefinitions
   selectedId: string | null
   onSelect: (documentId: string) => void
 }
@@ -108,6 +115,8 @@ function StripPlotInner({
   orientation,
   scoreLabel,
   categoryLabel,
+  categoryDefinitions,
+  colorDefinitions,
   selectedId,
   onSelect,
 }: InnerProps) {
@@ -118,14 +127,20 @@ function StripPlotInner({
     () => categoryKeys(points.map((point) => point.row)),
     [points],
   )
+  const hasDefinition = (key: string) =>
+    definitionOf(categoryDefinitions, key) !== undefined
   // Horizontal: category labels on the left, score axis along the bottom.
   // Vertical: score axis on the left, category labels along the bottom.
+  // A label with a definition is followed by an "ⓘ" marker: room for 2 more chars.
+  const labelLength = Math.max(
+    ...keys.map((k) => k.length + (hasDefinition(k) ? 2 : 0)),
+  )
   const margin = horizontal
     ? {
         top: 8,
         right: 16,
         bottom: 40,
-        left: Math.min(24 + Math.max(...keys.map((k) => k.length)) * 7, 180),
+        left: Math.min(24 + labelLength * 7, 180),
       }
     : { top: 16, right: 16, bottom: 48, left: 56 }
   const crossLength = horizontal
@@ -222,6 +237,11 @@ function StripPlotInner({
                 fill="var(--mantine-color-text)"
               >
                 {b.key}
+                <LabelDefinitionInfo
+                  definitions={categoryDefinitions}
+                  value={b.key}
+                  svg
+                />
               </text>
               {b.placed.map((placed) => {
                 const isSelected = placed.point.documentId === selectedId
@@ -282,29 +302,10 @@ function StripPlotInner({
         )}
       </svg>
       {hasColors && colorScale.legend.length > 1 && (
-        <Paper
-          shadow="xs"
-          withBorder
-          p={6}
-          style={{ position: 'absolute', top: 8, right: 8 }}
-        >
-          <Stack gap={4}>
-            {colorScale.legend.map((entry) => (
-              <Flex key={entry.label} align="center" gap={6}>
-                <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    backgroundColor: entry.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <Text size="xs">{entry.label}</Text>
-              </Flex>
-            ))}
-          </Stack>
-        </Paper>
+        <ColorLegend
+          legend={colorScale.legend}
+          definitions={colorDefinitions}
+        />
       )}
       {hovered && hoveredAt && (
         <Paper

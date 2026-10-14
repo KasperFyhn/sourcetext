@@ -12,7 +12,6 @@ import sourcetext.db as db
 from sourcetext.notes import DEFAULT_FILENAME, NotesFile
 from sourcetext.server.backgroundserver import BackgroundServer
 from sourcetext.types import (
-    GroupType,
     IdType,
     IdValue,
     LabelType,
@@ -47,7 +46,7 @@ class SourceText:
         groups: ColumnName | Iterable[LabelValue] | LabelType | None = None,
         group_definitions: dict[str, Any] = None,
         notes_file: str | os.PathLike | None = None,
-        **fields: LabelType | ScoreType | GroupType | TemporalType | Point2DType,
+        **fields: LabelType | ScoreType | TemporalType | TextType | Point2DType | SpanType,
     ) -> None:
         self._validate_mode(texts, data)
 
@@ -82,14 +81,14 @@ class SourceText:
                 scores = ScoreType(scores)
             fields["scores"] = scores
         if groups is not None:
-            if not isinstance(groups, GroupType):
-                groups = GroupType(groups)
+            if not isinstance(groups, LabelType):
+                groups = LabelType(groups)
             if group_definitions is not None:
                 if groups.definitions is not None:
                     raise TypeError(
                         "`groups` already has a `definitions=` secondary; don't also pass `group_definitions=`."
                     )
-                groups = GroupType(groups.source, definitions=group_definitions)
+                groups = LabelType(groups.source, definitions=group_definitions)
             fields["groups"] = groups
         elif group_definitions is not None:
             raise TypeError("`group_definitions` was given but no `groups=` field was provided to attach it to.")
@@ -107,12 +106,10 @@ class SourceText:
             values = source.resolve(data)
             if isinstance(source, LabelType):
                 db.add_labels(self._session, field_name, doc_ids, values)
+                if source.definitions:
+                    db.add_label_definitions(self._session, field_name, source.definitions)
             elif isinstance(source, ScoreType):
                 db.add_scores(self._session, field_name, doc_ids, values)
-            elif isinstance(source, GroupType):
-                db.add_groups(self._session, field_name, doc_ids, values)
-                if source.definitions:
-                    db.add_group_definitions(self._session, field_name, source.definitions)
             elif isinstance(source, TextType):
                 db.add_text(self._session, field_name, doc_ids, values)
             elif isinstance(source, TemporalType):

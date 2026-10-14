@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from sourcetext.db.schema import (
     Document,
-    Group,
     Label,
+    LabelDefinition,
     Note,
     Point2D,
     Score,
@@ -27,7 +27,6 @@ from sourcetext.db.schema import (
 _SCALAR_TABLES = [
     ("label", Label),
     ("score", Score),
-    ("group", Group),
     ("temporal_year", TemporalYear),
     ("temporal_date", TemporalDate),
     ("temporal_datetime", TemporalDatetime),
@@ -35,7 +34,7 @@ _SCALAR_TABLES = [
 ]
 
 # Tables whose values are a discrete set, suitable for an "in" (membership) filter.
-_IN_TABLES = (Label, Group)
+_IN_TABLES = (Label,)
 # Tables whose values are orderable, suitable for a "range" (min/max) filter, along
 # with how to coerce a raw filter bound (a JSON number or ISO string) to that column's
 # Python type.
@@ -51,13 +50,16 @@ _RANGE_COERCERS = {
 class FieldInfo:
     name: str
     type: str
-    # Filter metadata: distinct values for label/group fields (an "in" filter's
+    # Filter metadata: distinct values for label fields (an "in" filter's
     # candidates), or the min/max bound for score/temporal fields (a "range" filter's
     # domain). None for field types with no filter (point_2d) or that need neither
     # (text, which filters by substring instead).
     values: list[Any] | None = None
     min: Any | None = None
     max: Any | None = None
+    # Label fields only: `{value: definition}` from the field's `definitions=`,
+    # for the UI to show what each value means. None if the field has none.
+    definitions: dict[str, Any] | None = None
 
 
 @dataclass
@@ -125,6 +127,15 @@ def _value_bounds(session: Session, table) -> dict[str, tuple[Any, Any]]:
     return {name: (lo, hi) for name, lo, hi in session.execute(stmt)}
 
 
+def _label_definitions(session: Session) -> dict[str, dict[str, Any]]:
+    """`{field_name: {value: definition}}` for every label field with definitions."""
+    out: dict[str, dict[str, Any]] = {}
+    stmt = select(LabelDefinition.field_name, LabelDefinition.value, LabelDefinition.definition)
+    for name, value, definition in session.execute(stmt):
+        out.setdefault(name, {})[value] = definition
+    return out
+
+
 def list_fields(session: Session) -> list[FieldInfo]:
     """Every field name present in the DB, in insertion order within each type,
     decorated with filter metadata (see `FieldInfo`)."""
@@ -134,12 +145,13 @@ def list_fields(session: Session) -> list[FieldInfo]:
     range_bounds: dict[str, tuple[Any, Any]] = {}
     for table in _RANGE_COERCERS:
         range_bounds.update(_value_bounds(session, table))
+    definitions = _label_definitions(session)
 
     fields = []
     for kind, table in _SCALAR_TABLES:
         for name in _field_names(session, table):
             if table in _IN_TABLES:
-                fields.append(FieldInfo(name, kind, values=in_values.get(name)))
+                fields.append(FieldInfo(name, kind, values=in_values.get(name), definitions=definitions.get(name)))
             elif table in _RANGE_COERCERS:
                 lo, hi = range_bounds.get(name, (None, None))
                 fields.append(FieldInfo(name, kind, min=_serialize(lo), max=_serialize(hi)))
@@ -151,12 +163,12 @@ def list_fields(session: Session) -> list[FieldInfo]:
 
 def list_plot_fields(session: Session) -> list[FieldInfo]:
     """Every field name that fits the plot view: point_2d fields (a ready-made
-    position), score fields (a numeric axis), and label and group fields (a
-    categorical axis, which turns the plot into a strip plot, or the point color)."""
+    position), score fields (a numeric axis), and label fields (a categorical axis,
+    which turns the plot into a strip plot, or the point color)."""
     fields = [FieldInfo(name, "point_2d") for name in _field_names(session, Point2D)]
     fields += [FieldInfo(name, "score") for name in _field_names(session, Score)]
-    fields += [FieldInfo(name, "label") for name in _field_names(session, Label)]
-    fields += [FieldInfo(name, "group") for name in _field_names(session, Group)]
+    definitions = _label_definitions(session)
+    fields += [FieldInfo(name, "label", definitions=definitions.get(name)) for name in _field_names(session, Label)]
     return fields
 
 
@@ -283,14 +295,14 @@ def get_document(session: Session, document_id: str) -> DocumentRow | None:
 
 
 def _category_value_subquery(session: Session, field_name: str):
-    """A `(document_id, value)` subquery for one label or group field, for an
+    """A `(document_id, value)` subquery for one label field, for an
     optional outer join onto a plot query — documents without a value just get None
     rather than being dropped (unlike a missing axis value, a missing color or
     category shouldn't hide the point). Raises ValueError if `field_name` isn't a
-    label or group field."""
+    label field."""
     table = _scalar_table_for_field(session, field_name)
     if table not in _IN_TABLES:
-        raise ValueError(f"{field_name!r} is not a label or group field.")
+        raise ValueError(f"{field_name!r} is not a label field.")
     return select(table.document_id, table.value).where(table.field_name == field_name).subquery()
 
 
@@ -301,7 +313,7 @@ def list_points_2d(
     filters: list[FieldFilter] | None = None,
 ) -> list[ScatterPointRow]:
     """All (x, y) points for one Point2DType field, joined to their document text
-    and, if `group_field` is given, that label or group field's value per document.
+    and, if `group_field` is given, that label field's value per document.
     `filters` narrows which documents' points are included."""
     stmt = (
         select(Point2D.document_id, Point2D.x, Point2D.y, Document.text)
@@ -324,7 +336,7 @@ def list_score_pairs(
     filters: list[FieldFilter] | None = None,
 ) -> list[ScatterPointRow]:
     """Two ScoreType fields combined into (x, y) pairs, and if `group_field` is
-    given, that label or group field's value per document. Inner join on the two score
+    given, that label field's value per document. Inner join on the two score
     fields: documents missing either score are simply omitted. `filters` narrows
     which documents' points are included."""
     x_scores = select(Score.document_id, Score.value.label("x")).where(Score.field_name == x_field).subquery()
@@ -350,10 +362,10 @@ def list_strip_points(
     filters: list[FieldFilter] | None = None,
 ) -> list[StripPointRow]:
     """One point per document with a value for the ScoreType field `x_field`, and
-    if given, its value for the label/group fields `row_field` (which row of the
+    if given, its value for the label fields `row_field` (which row of the
     strip plot it lands in) and `color_field`. `filters` narrows which documents'
     points are included. Raises ValueError if `row_field` or `color_field` isn't a
-    label or group field, or if `filters` is invalid (see `_apply_filters`)."""
+    label field, or if `filters` is invalid (see `_apply_filters`)."""
     stmt = (
         select(Score.document_id, Score.value, Document.text)
         .join(Document, Document.id == Score.document_id)
@@ -377,11 +389,10 @@ class CrosstabCell:
 
 
 def crosstab(session: Session, row_field: str, col_field: str) -> list[CrosstabCell]:
-    """Document counts per (row_field value, col_field value) pair, for two label or
-    group fields (e.g. gold labels vs. predictions: a confusion matrix). Documents
-    with a value for only one of the fields count under None for the other; those
-    with neither are left out. Raises ValueError if either isn't a label or group
-    field."""
+    """Document counts per (row_field value, col_field value) pair, for two label
+    fields (e.g. gold labels vs. predictions: a confusion matrix). Documents with a
+    value for only one of the fields count under None for the other; those with
+    neither are left out. Raises ValueError if either isn't a label field."""
     rows = _category_value_subquery(session, row_field)
     cols = _category_value_subquery(session, col_field)
     stmt = (

@@ -56,7 +56,7 @@ export function MatrixView() {
       .then((result) => {
         setFields(result)
         const names = result
-          .filter((f) => f.type === 'label' || f.type === 'group')
+          .filter((f) => f.type === 'label')
           .map((f) => f.name)
         if (names.includes(PRESET_ROW) && names.includes(PRESET_COL)) {
           setRowField(PRESET_ROW)
@@ -129,8 +129,10 @@ export function MatrixView() {
 
   if (!fields) return null
 
+  const definitionsOf = (name: string) =>
+    fields.find((f) => f.name === name)?.definitions
   const categoryFields = fields
-    .filter((f) => f.type === 'label' || f.type === 'group')
+    .filter((f) => f.type === 'label')
     .map((f) => f.name)
   // Every document in the table shares the matrix fields' values, so those
   // columns would only repeat the selected cell (and filtering on them would only
@@ -152,8 +154,8 @@ export function MatrixView() {
           )}
           {categoryFields.length < 2 && (
             <Text c="dimmed">
-              A confusion matrix needs two label or group fields, e.g.
-              predictions and gold labels.
+              A confusion matrix needs two label fields, e.g. predictions and
+              gold labels.
             </Text>
           )}
           {categoryFields.length >= 2 && (
@@ -178,6 +180,8 @@ export function MatrixView() {
                 <ConfusionMatrix
                   rowField={rowField}
                   colField={colField}
+                  rowDefinitions={definitionsOf(rowField)}
+                  colDefinitions={definitionsOf(colField)}
                   cells={cells}
                   selected={cell}
                   onSelect={handleCellSelect}
