@@ -73,7 +73,13 @@ them:
   taking a `Session` plus parallel `document_ids`/`values` and adding rows
   *without committing* — the caller controls the transaction. Most `add_*`
   functions delegate to the private `_add_scalar_field` helper (mirrors the
-  `_ScalarField` mixin: cast, skip `None` values, insert). `get_sessionmaker()`
+  `_ScalarField` mixin: cast, skip `None` values, insert). Rows are inserted in
+  bulk, not as ORM objects (`_insert_rows` in `db/population.py`: a DataFrame
+  registered on the session's DuckDB connection, inside its transaction), since
+  one ORM object per row took minutes for ~1M spans; `add_*` return the row count.
+  `nextval` ids are only ordered across calls (DuckDB evaluates them in parallel),
+  so order rows by `rowid` or an explicit column, never by id within one field.
+  Spans store their covered `span_text` at insert. `get_sessionmaker()`
   builds a `sessionmaker` bound to a DuckDB engine via `duckdb-engine`
   (`Base.metadata.create_all` runs automatically), defaulting to an in-memory
   DB but accepting any SQLAlchemy URL.

@@ -29,6 +29,18 @@ def to_python_value(value: Any) -> Any:
     Missing-value markers (NaN, NaT, pd.NA) become None, matching how the rest of
     sourcetext treats missing values.
     """
+    # Fast paths for exact built-in types (e.g. the ~10 values of each of 1M span
+    # dicts): no numpy/pandas checks needed. Exact `type`, not isinstance: numpy's
+    # float64 subclasses float, and must still be converted below.
+    kind = type(value)
+    if kind is str or kind is int or kind is bool:
+        return value
+    if kind is float:
+        return None if value != value else value  # NaN is the only value != itself
+    if kind is dict:
+        return {to_python_value(k): to_python_value(v) for k, v in value.items()}
+    if kind is list:
+        return [to_python_value(v) for v in value]
     if value is None or value is pd.NA or value is pd.NaT:
         return None
     if isinstance(value, np.datetime64):

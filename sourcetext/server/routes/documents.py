@@ -35,6 +35,19 @@ def _parse_filters(filters: str | None) -> list[db.FieldFilter] | None:
     return [db.FieldFilter(**f.model_dump()) for f in parsed]
 
 
+def _fields(request: Request, session) -> list[dict]:
+    """The full field list with its filter metadata (`db.list_fields`), computed
+    once per DB: typed fields never change after `SourceText` is built, and the
+    metadata scans every value. Keyed by the sessionmaker, so a new DB (e.g. in
+    tests) isn't served a stale list."""
+    sessionmaker = request.app.state.db_sessionmaker
+    cached = getattr(request.app.state, "fields_cache", None)
+    if cached is None or cached[0] is not sessionmaker:
+        cached = (sessionmaker, [asdict(f) for f in db.list_fields(session)])
+        request.app.state.fields_cache = cached
+    return cached[1]
+
+
 # Must stay `async def`: in-memory DuckDB only shares data within the thread that
 # created the sessionmaker, and sync routes would run in FastAPI's threadpool.
 @router.get("/documents/tabular", response_model=DocumentsResponse)
@@ -61,7 +74,7 @@ async def get_tabular_documents(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         return {
-            "fields": [asdict(f) for f in db.list_fields(session)],
+            "fields": _fields(request, session),
             "documents": [asdict(d) for d in documents],
             "total": total,
         }
@@ -142,7 +155,7 @@ async def get_fields(request: Request):
     """The full field list (all typed-field kinds), for a document-detail pane that
     isn't otherwise loading a page of documents (e.g. the scatter view)."""
     with request.app.state.db_sessionmaker() as session:
-        return {"fields": [asdict(f) for f in db.list_fields(session)]}
+        return {"fields": _fields(request, session)}
 
 
 @router.get("/spans", response_model=SpansResponse)
