@@ -9,26 +9,43 @@ export interface Field {
     | 'temporal_datetime'
     | 'text'
     | 'point_2d'
+    | 'span'
   // Filter metadata: distinct values for label/group fields (an "in" filter's
   // candidates), or the min/max bound for score/temporal fields (a "range"
-  // filter's domain). Temporal bounds are ISO date/datetime strings.
-  values?: (string | number)[] | null
+  // filter's domain). Temporal bounds are ISO date/datetime strings. For span
+  // fields: their distinct labels (null for unlabelled spans) and score bounds.
+  values?: (string | number | null)[] | null
   min?: number | string | null
   max?: number | string | null
 }
 
-export type FilterOp = 'in' | 'range' | 'contains'
+export type FilterOp = 'in' | 'range' | 'contains' | 'span'
 
+// A "span" filter matches documents with at least one span in the span field
+// `field` with a label among `values` (null: unlabelled), a score within
+// `min`/`max`, `text` in its span text or norm text, and exactly `typeText` as its
+// type text. It also prunes that field's spans everywhere else: counts, badges and
+// highlights only include the spans it matches.
 export interface FieldFilter {
   field: string
   op: FilterOp
-  values?: string[]
+  values?: (string | null)[]
   min?: number | string
   max?: number | string
   text?: string
+  typeText?: string
 }
 
-export type FieldValue = string | number | [number, number] | null
+// One span type in a document: the spans sharing a type text (norm text, else
+// span text) and label, and how many there are.
+export interface SpanTypeCount {
+  text: string
+  label: string | null
+  count: number
+}
+
+export type FieldValue =
+  string | number | [number, number] | SpanTypeCount[] | null
 
 export interface Document {
   id: string
@@ -173,6 +190,76 @@ export async function fetchDocument(documentId: string): Promise<Document> {
   const res = await fetch(`/api/documents/${encodeURIComponent(documentId)}`)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json() as Promise<Document>
+}
+
+export interface SpanLabel {
+  label: string | null
+  spans: number
+  documents: number
+}
+
+// A span type across documents.
+export interface SpanTypeSummary {
+  text: string
+  label: string | null
+  spans: number
+  documents: number
+  // Distinct span texts among its spans (more than 1 when a norm text brings
+  // several surface forms together).
+  variants: number
+}
+
+export interface SpanSummary {
+  // Every span field, and the one summarized (null if there are no span fields).
+  fields: string[]
+  field: string | null
+  labels: SpanLabel[]
+  // The most frequent span types, of `totalTypes` matching in all.
+  types: SpanTypeSummary[]
+  totalTypes: number
+}
+
+// An overview of one span field (default: the first): counts per label and the
+// most frequent span types. A "span" filter on the field narrows which spans are
+// counted (the label counts ignore its labels); other filters, which documents.
+export async function fetchSpanSummary(
+  field: string | null,
+  filters: FieldFilter[] = [],
+): Promise<SpanSummary> {
+  const params = new URLSearchParams()
+  if (field) params.set('field', field)
+  if (filters.length > 0) params.set('filters', JSON.stringify(filters))
+  const res = await fetch(`/api/spans?${params}`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json() as Promise<SpanSummary>
+}
+
+export interface Span {
+  field: string
+  // Character (code point) offsets into the document text, as given in Python.
+  start: number
+  end: number
+  // The text the span covers.
+  text: string
+  normText: string | null
+  label: string | null
+  score: number | null
+}
+
+// Every span on one document, across all span fields, in text order. "span"
+// filters in `filters` prune their field's spans.
+export async function fetchDocumentSpans(
+  documentId: string,
+  filters: FieldFilter[] = [],
+): Promise<Span[]> {
+  const params = new URLSearchParams()
+  if (filters.length > 0) params.set('filters', JSON.stringify(filters))
+  const res = await fetch(
+    `/api/documents/${encodeURIComponent(documentId)}/spans?${params}`,
+  )
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const body = (await res.json()) as { spans: Span[] }
+  return body.spans
 }
 
 export async function fetchNote(documentId: string): Promise<string> {

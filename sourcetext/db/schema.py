@@ -93,8 +93,8 @@ class GroupDefinition(Base):
 
 
 class Span(Base):
-    """SpanType rows: one row per span. An document with zero spans simply
-    contributes no rows; `score` is optional per span."""
+    """SpanType rows: one row per span. A document with zero spans simply
+    contributes no rows; `label`, `score` and `norm_text` are optional per span."""
 
     __tablename__ = "spans"
 
@@ -103,8 +103,12 @@ class Span(Base):
     field_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     span_start: Mapped[int] = mapped_column(Integer, nullable=False)
     span_end: Mapped[int] = mapped_column(Integer, nullable=False)
-    label: Mapped[str] = mapped_column(String, nullable=False)
+    # The text the span covers, cut from the document's text once at insert (see
+    # `add_spans`) rather than in every query.
+    span_text: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str | None] = mapped_column(String, nullable=True)
     score: Mapped[float | None] = mapped_column(Double, nullable=True)
+    norm_text: Mapped[str | None] = mapped_column(String, nullable=True)
 
     document: Mapped[Document] = relationship(back_populates="spans")
 

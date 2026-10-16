@@ -124,6 +124,26 @@ def test_span_type_field():
     assert [r.document_id for r in rows] == ["0", "2"]
 
 
+def test_span_text_is_cut_by_character_offsets():
+    st = SourceText(["Ærø og Obama."], ner=SpanType([[{"start": 0, "end": 3}, {"start": 7, "end": 12}]]))
+    rows = st._session.query(Span).order_by(Span.span_start).all()
+    assert [r.span_text for r in rows] == ["Ærø", "Obama"]
+
+
+def test_missing_span_scores_are_null_not_nan():
+    spans = [[{"start": 0, "end": 1, "score": 0.5}, {"start": 0, "end": 1}], [], []]
+    st = SourceText(TEXTS, ner=SpanType(spans))
+    assert sorted(r.score is None for r in st._session.query(Span)) == [False, True]
+    assert st._session.query(Span).filter(Span.score.is_not(None)).one().score == 0.5
+
+
+def test_span_type_field_stores_optional_keys():
+    spans = [[{"start": 0, "end": 3, "norm_text": "cat", "score": 0.5}], [], []]
+    st = SourceText(TEXTS, ner=SpanType(spans))
+    row = st._session.query(Span).one()
+    assert (row.label, row.score, row.norm_text) == (None, 0.5, "cat")
+
+
 def test_text_field():
     st = SourceText(TEXTS, editorial_note=TextType(["n1", "n2", "n3"]))
     rows = st._session.query(Text).order_by(Text.id).all()

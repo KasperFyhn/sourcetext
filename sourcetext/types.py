@@ -15,7 +15,7 @@ TextValue: TypeAlias = str
 LabelValue: TypeAlias = str | int | bool
 ScoreValue: TypeAlias = float | int
 GroupValue: TypeAlias = str | int
-SpanValue: TypeAlias = list[dict[str, str | int]]
+SpanValue: TypeAlias = list[dict[str, str | int | float | None]]
 TemporalValue: TypeAlias = int | dt.date | dt.datetime
 Point2DValue: TypeAlias = tuple[float | int, float | int]
 
@@ -29,6 +29,18 @@ def to_python_value(value: Any) -> Any:
     Missing-value markers (NaN, NaT, pd.NA) become None, matching how the rest of
     sourcetext treats missing values.
     """
+    # Fast paths for exact built-in types (e.g. the ~10 values of each of 1M span
+    # dicts): no numpy/pandas checks needed. Exact `type`, not isinstance: numpy's
+    # float64 subclasses float, and must still be converted below.
+    kind = type(value)
+    if kind is str or kind is int or kind is bool:
+        return value
+    if kind is float:
+        return None if value != value else value  # NaN is the only value != itself
+    if kind is dict:
+        return {to_python_value(k): to_python_value(v) for k, v in value.items()}
+    if kind is list:
+        return [to_python_value(v) for v in value]
     if value is None or value is pd.NA or value is pd.NaT:
         return None
     if isinstance(value, np.datetime64):
@@ -150,15 +162,23 @@ class GroupType(_PrimaryType):
 
 
 class SpanType(_PrimaryType):
-    """Per-instance list of spans: list[dict] with int start/end and str label
-    (score optional). An instance may have zero, one, or many spans.
+    """Per-instance list of spans: list[dict] with int `start`/`end` offsets, and
+    optionally a str `label`, a numeric `score` and a str `norm_text` (a normalized
+    form of the covered text, e.g. an entity's canonical name), each of which may be
+    missing or None. An instance may have zero, one, or many spans.
     """
 
     # Not derived via get_args() like the other types' value_types: a span's
     # shape is a nested list[dict], not a flat scalar union, so the per-span
     # structure still needs the custom checks in _validate_span below.
     value_types: ClassVar[tuple[type, ...]] = (list,)
-    _REQUIRED_KEYS: ClassVar[set[str]] = {"start", "end", "label"}
+    _REQUIRED_KEYS: ClassVar[set[str]] = {"start", "end"}
+    # Optional keys and the types their (non-None) values must have.
+    _OPTIONAL_KEYS: ClassVar[dict[str, tuple[type, ...]]] = {
+        "label": (str,),
+        "score": (int, float),
+        "norm_text": (str,),
+    }
 
     def _validate_values(self, values: list) -> None:
         super()._validate_values(values)
@@ -175,13 +195,16 @@ class SpanType(_PrimaryType):
         missing = cls._REQUIRED_KEYS - span.keys()
         if missing:
             raise TypeError(f"SpanType span {span!r} is missing required key(s): {sorted(missing)}.")
-        start, end, label = span["start"], span["end"], span["label"]
-        if not isinstance(start, int) or not isinstance(end, int):
+        start, end = span["start"], span["end"]
+        if not isinstance(start, int) or not isinstance(end, int) or isinstance(start, bool) or isinstance(end, bool):
             raise TypeError(f"SpanType span {span!r} must have integer 'start' and 'end' offsets.")
         if start < 0 or end < start:
             raise TypeError(f"SpanType span {span!r} has an invalid offset range (start={start}, end={end}).")
-        if not isinstance(label, str):
-            raise TypeError(f"SpanType span {span!r} must have a str 'label'.")
+        for key, types in cls._OPTIONAL_KEYS.items():
+            value = span.get(key)
+            if value is not None and (not isinstance(value, types) or isinstance(value, bool)):
+                expected = " or ".join(t.__name__ for t in types)
+                raise TypeError(f"SpanType span {span!r} must have a {expected} (or None) {key!r}.")
 
 
 class TemporalType(_PrimaryType):
