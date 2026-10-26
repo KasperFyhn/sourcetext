@@ -7,9 +7,8 @@ import pytest
 from sourcetext import LabelType, Point2DType, SourceText, SpanType, TemporalType, TextType
 from sourcetext.db.schema import (
     Document,
-    Group,
-    GroupDefinition,
     Label,
+    LabelDefinition,
     Point2D,
     Score,
     Span,
@@ -46,21 +45,32 @@ def test_predictions_gold_confidence_land_in_separate_tables():
     assert score_field_names == {"predictions_confidence"}
 
 
-def test_group_definitions_sugar_attaches_to_group_field():
+def test_group_definitions_sugar_attaches_to_groups_label_field():
     st = SourceText(TEXTS, groups=[0, 1, 0], group_definitions={0: "nature", 1: "animals"})
 
-    groups = st._session.query(Group).order_by(Group.id).all()
+    groups = st._session.query(Label).filter_by(field_name="groups").order_by(Label.id).all()
     assert [g.value for g in groups] == ["0", "1", "0"]
 
-    defs = {d.group_id: d.definition for d in st._session.query(GroupDefinition).all()}
+    defs = {d.value: d.definition for d in st._session.query(LabelDefinition).all()}
     assert defs == {"0": "nature", "1": "animals"}
+
+
+def test_label_definitions_are_stored_for_any_label_field():
+    st = SourceText(
+        TEXTS,
+        gold_labels=LabelType(["pos", "neg", "pos"], definitions={"pos": "Approving tone"}),
+        stance=LabelType(["for", "against", "for"], definitions={"against": "Argues against"}),
+    )
+
+    defs = {(d.field_name, d.value): d.definition for d in st._session.query(LabelDefinition).all()}
+    assert defs == {("gold_labels", "pos"): "Approving tone", ("stance", "against"): "Argues against"}
 
 
 def test_group_definitions_can_be_rich_json_objects():
     definition = {"label": "Nature", "keywords": ["tree", "forest"], "scores": {"coherence": 0.8}}
     st = SourceText(TEXTS, groups=[0, 1, 0], group_definitions={0: definition})
 
-    row = st._session.query(GroupDefinition).one()
+    row = st._session.query(LabelDefinition).one()
     assert row.definition == definition
 
 
@@ -171,7 +181,7 @@ def test_numpy_inputs_are_stored_as_plain_python():
     assert [d.id for d in st._session.query(Document).order_by(Document.id).all()] == ["10", "11", "12"]
     assert [r.value for r in st._session.query(TemporalYear).order_by(TemporalYear.id).all()] == [1850, 1851, 1852]
     assert [(s.span_start, s.span_end) for s in st._session.query(Span).all()] == [(0, 3)]
-    assert st._session.query(GroupDefinition).one().definition == {"weights": [0.5, 0.25]}
+    assert st._session.query(LabelDefinition).one().definition == {"weights": [0.5, 0.25]}
     assert len(st._session.query(Score).all()) == 3
     assert len(st._session.query(Point2D).all()) == 3
 

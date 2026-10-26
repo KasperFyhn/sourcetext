@@ -1,4 +1,4 @@
-import { Divider, Flex, Paper, ScrollArea, Stack, Text } from '@mantine/core'
+import { Divider, Paper, ScrollArea, Stack, Text } from '@mantine/core'
 import { AxisBottom, AxisLeft } from '@visx/axis'
 import { Group } from '@visx/group'
 import { ParentSize } from '@visx/responsive'
@@ -7,11 +7,15 @@ import { useMemo, useRef, useState } from 'react'
 
 import type { ScatterPoint } from '../api'
 import { buildColorScale } from '../colors'
+import { ColorLegend } from './ColorLegend'
+import type { LabelDefinitions } from './LabelDefinition'
 
 interface Props {
   points: ScatterPoint[]
   xLabel: string
   yLabel: string
+  // The color field's label definitions, shown on hovering a legend entry.
+  colorDefinitions?: LabelDefinitions
   selectedId: string | null
   onSelect: (documentId: string) => void
 }
@@ -91,6 +95,7 @@ export function ScatterPlot({
   points,
   xLabel,
   yLabel,
+  colorDefinitions,
   selectedId,
   onSelect,
 }: Props) {
@@ -105,6 +110,7 @@ export function ScatterPlot({
               points={points}
               xLabel={xLabel}
               yLabel={yLabel}
+              colorDefinitions={colorDefinitions}
               selectedId={selectedId}
               onSelect={onSelect}
             />
@@ -126,6 +132,7 @@ function ScatterPlotInner({
   points,
   xLabel,
   yLabel,
+  colorDefinitions,
   selectedId,
   onSelect,
 }: InnerProps) {
@@ -251,29 +258,10 @@ function ScatterPlotInner({
         </Group>
       </svg>
       {hasGroups && colorScale.legend.length > 1 && (
-        <Paper
-          shadow="xs"
-          withBorder
-          p={6}
-          style={{ position: 'absolute', top: 8, right: 8 }}
-        >
-          <Stack gap={4}>
-            {colorScale.legend.map((entry) => (
-              <Flex key={entry.label} align="center" gap={6}>
-                <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    backgroundColor: entry.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <Text size="xs">{entry.label}</Text>
-              </Flex>
-            ))}
-          </Stack>
-        </Paper>
+        <ColorLegend
+          legend={colorScale.legend}
+          definitions={colorDefinitions}
+        />
       )}
       {hovered && (
         <ScatterTooltip

@@ -4,6 +4,8 @@ import { useMemo } from 'react'
 import type { CrosstabCell } from '../api'
 import { NO_VALUE_LABEL } from '../colors'
 import { categoryKeys } from '../plotting'
+import { LabelDefinitionInfo } from './LabelDefinition'
+import type { LabelDefinitions } from './LabelDefinition'
 
 export interface MatrixCell {
   row: string
@@ -13,6 +15,9 @@ export interface MatrixCell {
 interface Props {
   rowField: string
   colField: string
+  // The fields' label definitions, shown via an info icon in the row/column headers.
+  rowDefinitions?: LabelDefinitions
+  colDefinitions?: LabelDefinitions
   cells: CrosstabCell[]
   selected: MatrixCell | null
   // Never called for a "(no value)" row or column, which no filter can express.
@@ -31,6 +36,8 @@ const cellKey = (row: string, col: string) => `${row}\u0000${col}`
 export function ConfusionMatrix({
   rowField,
   colField,
+  rowDefinitions,
+  colDefinitions,
   cells,
   selected,
   onSelect,
@@ -74,7 +81,8 @@ export function ConfusionMatrix({
           </Table.Th>
           {cols.map((col) => (
             <Table.Th key={col} ta="center">
-              {col}
+              {col}{' '}
+              <LabelDefinitionInfo definitions={colDefinitions} value={col} />
             </Table.Th>
           ))}
           <Table.Th ta="center">
@@ -89,7 +97,10 @@ export function ConfusionMatrix({
           const rowTotal = rowTotals.get(row) ?? 0
           return (
             <Table.Tr key={row}>
-              <Table.Th>{row}</Table.Th>
+              <Table.Th>
+                {row}{' '}
+                <LabelDefinitionInfo definitions={rowDefinitions} value={row} />
+              </Table.Th>
               {cols.map((col) => {
                 const count = counts.get(cellKey(row, col)) ?? 0
                 const share = rowTotal > 0 ? count / rowTotal : 0

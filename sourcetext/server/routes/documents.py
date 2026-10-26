@@ -106,7 +106,7 @@ async def get_strip(
     filters: str | None = Query(None),
 ):
     """One point per document along the score field `xField`, split into rows by the
-    label or group field `rowField` and optionally colored by another (`colorField`):
+    label field `rowField` and optionally colored by another (`colorField`):
     the plot view's strip plot, used when one of its axes is categorical."""
     with request.app.state.db_sessionmaker() as session:
         field_filters = _parse_filters(filters)
@@ -125,7 +125,7 @@ async def get_crosstab(
     row_field: str = Query(alias="rowField"),
     col_field: str = Query(alias="colField"),
 ):
-    """Document counts per value pair of two label or group fields (a confusion
+    """Document counts per value pair of two label fields (a confusion
     matrix, for e.g. gold labels vs. predictions)."""
     with request.app.state.db_sessionmaker() as session:
         try:

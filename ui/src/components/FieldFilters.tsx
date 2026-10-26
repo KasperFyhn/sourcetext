@@ -18,6 +18,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 
 import type { Field, FieldFilter } from '../api'
+import { LabelDefinitionInfo } from './LabelDefinition'
 
 interface Props {
   fields: Field[]
@@ -40,7 +41,7 @@ function setFieldFilter(
   return filter ? [...rest, filter] : rest
 }
 
-function LabelOrGroupFilter({ field, current, onChange }: ControlProps) {
+function LabelFilter({ field, current, onChange }: ControlProps) {
   const options = (field.values ?? []).map(String)
   return (
     <Chip.Group
@@ -60,7 +61,11 @@ function LabelOrGroupFilter({ field, current, onChange }: ControlProps) {
         <Group gap={6} mih={36}>
           {options.map((option) => (
             <Chip key={option} value={option} size="xs" variant="outline">
-              {option}
+              {option}{' '}
+              <LabelDefinitionInfo
+                definitions={field.definitions}
+                value={option}
+              />
             </Chip>
           ))}
         </Group>
@@ -352,9 +357,9 @@ export function FieldFilters({ fields, filters, onChange }: Props) {
     <Group align="flex-start" gap="lg">
       {filterable.map((field) => {
         const current = filters.find((f) => f.field === field.name)
-        if (field.type === 'label' || field.type === 'group')
+        if (field.type === 'label')
           return (
-            <LabelOrGroupFilter
+            <LabelFilter
               key={field.name}
               field={field}
               current={current}

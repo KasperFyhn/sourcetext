@@ -44,13 +44,13 @@ the background, so you can keep working and call `st.stop_server()` when done.
 ## What you get
 
 - **Table view.** Every document with its fields as columns. Sort by any column,
-  and filter by label, group, score range or date range.
+  and filter by label, score range or date range.
 - **Plot view.** Plot documents by a 2D embedding projection (e.g. UMAP), or put
-  any two fields on the axes, optionally coloured by a label or group. Two scores
+  any two fields on the axes, optionally coloured by a label. Two scores
   give a scatter plot, useful for spotting where a model's confidence and a second
-  measure disagree. A score against a label or group gives a strip plot: one row
+  measure disagree. A score against a label gives a strip plot: one row
   (or column) per category, with every document as its own dot.
-- **Confusion matrix view.** Cross two labels or groups (e.g. gold labels and
+- **Confusion matrix view.** Cross two label fields (e.g. gold labels and
   predictions) and click a cell to list its documents, which you can then filter
   further by their other fields.
 - **Document pane.** Select a document in any view to read its full text
@@ -154,7 +154,6 @@ and some parts are not built yet:
 
 - **Spans** (`SpanType`, e.g. NER output) are accepted and stored, but not yet
   highlighted in the text.
-- **Group definitions** are accepted and stored, but not yet shown in the app.
 
 See the [roadmap](https://github.com/KasperFyhn/sourcetext/blob/main/ROADMAP.md) for
 what's planned next.
@@ -222,8 +221,8 @@ These cover the common cases, and need no wrapping:
 | `predictions_confidence` | `ScoreType` | the classifier's confidence in each prediction  |
 | `gold_labels`            | `LabelType` | reference / ground-truth labels                 |
 | `scores`                 | `ScoreType` | any single numeric score, e.g. sentiment        |
-| `groups`                 | `GroupType` | cluster or topic assignments                    |
-| `group_definitions`      | —           | descriptions of each group (see below)          |
+| `groups`                 | `LabelType` | cluster or topic assignments                    |
+| `group_definitions`      | —           | what each group means (see below)               |
 
 ### Custom fields
 
@@ -243,15 +242,14 @@ SourceText(
 
 ## Field types
 
-| Type           | Values                                               | In the app                                                    | Typical use                        |
-|----------------|------------------------------------------------------|---------------------------------------------------------------|------------------------------------|
-| `TextType`     | `str`                                                | shown as text                                                 | titles, authors, source metadata   |
-| `LabelType`    | `str`, `int`, `bool`                                 | badge; filter by value; plot axis or colour; confusion matrix | classifier output, gold labels     |
-| `ScoreType`    | `float`, `int`                                       | filter by range; plot axis                                    | confidence, sentiment, any metric  |
-| `GroupType`    | `str`, `int`                                         | badge; filter by value; plot axis or colour; confusion matrix | clusters, topics                   |
-| `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps       |
-| `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections |
-| `SpanType`     | list of `{"start", "end", "label"}` dicts            | *not yet displayed*                                           | named entities, marked passages    |
+| Type           | Values                                               | In the app                                                    | Typical use                            |
+|----------------|------------------------------------------------------|---------------------------------------------------------------|----------------------------------------|
+| `TextType`     | `str`                                                | shown as text                                                 | titles, authors, source metadata       |
+| `LabelType`    | `str`, `int`, `bool`                                 | badge; filter by value; plot axis or colour; confusion matrix | classes, gold labels, clusters, topics |
+| `ScoreType`    | `float`, `int`                                       | filter by range; plot axis                                    | confidence, sentiment, any metric      |
+| `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps           |
+| `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections     |
+| `SpanType`     | list of `{"start", "end", "label"}` dicts            | *not yet displayed*                                           | named entities, marked passages        |
 
 All columns in the table view are sortable.
 
@@ -265,20 +263,31 @@ Notes on specific types:
 - **`Point2DType`**: to plot two separate scores against each other instead, just
   pass them as two `ScoreType` fields and pick both as axes in the plot view.
 
-### Group definitions
+### Label definitions
 
-`GroupType` accepts a `definitions=` dict mapping each group ID to a description.
-That can be a plain string, or any JSON-serializable object (e.g. keywords with
-weights). `group_definitions=` is shorthand for attaching one to `groups=`:
+`LabelType` accepts a `definitions=` dict mapping each value to what it means: a
+codebook entry for an annotation category, or a topic's keywords. That can be a
+plain string, or any JSON-serializable object (e.g. keywords with weights).
+`group_definitions=` is shorthand for attaching one to `groups=`:
 
 ```python
 # These are equivalent:
 SourceText(texts, groups=topics, group_definitions=keywords)
-SourceText(texts, groups=GroupType(topics, definitions=keywords))
+SourceText(texts, groups=LabelType(topics, definitions=keywords))
 
-# Custom group fields take definitions= directly:
-SourceText(texts, era=GroupType(eras, definitions={"early": "before 1850", "late": "1850 and after"}))
+# Other label fields take definitions= directly, e.g. a codebook:
+SourceText(
+    texts,
+    gold_labels=LabelType(gold, definitions={"irony": "Says the opposite of what is meant"}),
+    era=LabelType(eras, definitions={"early": "before 1850", "late": "1850 and after"}),
+)
 ```
+
+In the app, a value with a definition is marked with an ⓘ wherever it appears
+(badges, filter options, plot legends and axes, confusion matrix headers): hover
+the ⓘ to see the definition.
+Keyword lists, as `[word, weight]` pairs or a `{word: weight}` dict, are shown as
+a table of words and weights.
 
 ## Notes
 

@@ -20,7 +20,6 @@ class Document(Base):
 
     labels: Mapped[list["Label"]] = relationship(back_populates="document", cascade="all, delete-orphan")
     scores: Mapped[list["Score"]] = relationship(back_populates="document", cascade="all, delete-orphan")
-    groups: Mapped[list["Group"]] = relationship(back_populates="document", cascade="all, delete-orphan")
     spans: Mapped[list["Span"]] = relationship(back_populates="document", cascade="all, delete-orphan")
     temporal_years: Mapped[list["TemporalYear"]] = relationship(back_populates="document", cascade="all, delete-orphan")
     temporal_dates: Mapped[list["TemporalDate"]] = relationship(back_populates="document", cascade="all, delete-orphan")
@@ -66,29 +65,19 @@ class Score(_ScalarField):
     document: Mapped[Document] = relationship(back_populates="scores")
 
 
-class Group(_ScalarField):
-    """GroupType fields. `value` is a group id, stored as text so it lines up
-    with GroupDefinition.group_id."""
-
-    __tablename__ = "groups"
-
-    value: Mapped[str] = mapped_column(String, nullable=False)
-
-    document: Mapped[Document] = relationship(back_populates="groups")
-
-
-class GroupDefinition(Base):
-    """GroupDefinition rows, keyed by which GroupType field they belong to
-    so two different GroupType fields can each carry their own definitions.
+class LabelDefinition(Base):
+    """LabelDefinition rows, keyed by which LabelType field they belong to
+    so two different LabelType fields can each carry their own definitions.
+    `value` is the label value being defined, as text like `Label.value`.
 
     `definition` is JSON, not plain text: it may be a bare string, or a richer
     object (e.g. keywords + scores) for the UI to render — not meant to be
     searched at the DB level, just fetched and displayed."""
 
-    __tablename__ = "group_definitions"
+    __tablename__ = "label_definitions"
 
     field_name: Mapped[str] = mapped_column(String, primary_key=True)
-    group_id: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(String, primary_key=True)
     definition: Mapped[Any] = mapped_column(JSON, nullable=False)
 
 

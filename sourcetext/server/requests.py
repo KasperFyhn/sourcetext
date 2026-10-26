@@ -9,6 +9,7 @@ class FieldOut(CamelModel):
     values: list[Any] | None = None
     min: Any | None = None
     max: Any | None = None
+    definitions: dict[str, Any] | None = None
 
 
 class FieldFilterIn(CamelModel):
