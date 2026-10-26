@@ -62,7 +62,7 @@ them:
   construction — this is a general mechanism on `_PrimaryType`, not a
   `LabelType`-only special case, even though it's the only one wired up today.
   There is deliberately no separate group/cluster type: clusters and topics are
-  `LabelType` fields (`groups=` is just a preset name).
+  `LabelType` fields (`group=` is just a preset name).
 - **`schema.py`** — one SQLAlchemy ORM table per type. Most types share the
   `(id, document_id, field_name, value)` shape via the `_ScalarField` mixin;
   `Span` and `LabelDefinition` don't fit that shape and are standalone models.
@@ -80,8 +80,8 @@ them:
   (`Base.metadata.create_all` runs automatically), defaulting to an in-memory
   DB but accepting any SQLAlchemy URL.
 - **`sourcetext.py`** — `SourceText.__init__` is the single dispatch point.
-  Named presets (`predictions=`, `predictions_confidence=`, `gold_labels=`,
-  `scores=`, `groups=`/`group_definitions=`) are wrapped into their typed-field
+  Named presets (`prediction=`, `confidence=`, `gold_label=`, `score=`,
+  `embedding=`, `group=`/`group_definitions=`) are wrapped into their typed-field
   instance and merged into the same `fields` dict as arbitrary `**fields`
   entries — from there, one loop resolves each field's values and calls the
   matching `db.add_*` function based on `isinstance` checks. There is
@@ -127,7 +127,7 @@ thing persisted; typed fields are rebuilt from Python each run. `sourcetext/note
 `NotesFile` (one per `SourceText`, on `app.state.notes_file`) mirrors the `notes`
 table to a JSONL file (`notes_file=`, or chosen in the UI dialog), rewriting it
 atomically after each note change. Records carry `document_id` and `text_hash`:
-they match by id if the user passed `ids=`, else by text hash (duplicate texts all
+they match by id if the user passed `doc_id=`, else by text hash (duplicate texts all
 get the note). Records matching no document are kept as orphans and written back.
 Notes are never kept only in memory: until a file is set, the note route returns
 409 and the UI disables the notes field, with "Select notes file ..." in its label; a

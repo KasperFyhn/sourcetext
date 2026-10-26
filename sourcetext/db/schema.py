@@ -46,7 +46,7 @@ class _ScalarField(Base):
 
 
 class Label(_ScalarField):
-    """Every LabelType field, including the `predictions` and `gold` presets."""
+    """Every LabelType field, including the `prediction` and `gold_label` presets."""
 
     __tablename__ = "labels"
 

@@ -53,9 +53,9 @@ type PlotData =
 // Field names created by SourceText's classification presets: if present, they make
 // the most useful defaults for a strip plot (confidence per gold label, colored by
 // prediction).
-const PRESET_SCORE = 'predictions_confidence'
-const PRESET_CATEGORIES = ['gold_labels', 'predictions']
-const PRESET_COLOR = 'predictions'
+const PRESET_SCORE = 'confidence'
+const PRESET_CATEGORIES = ['gold_label', 'prediction']
+const PRESET_COLOR = ['group', 'prediction']
 
 const isCategorical = (field: Field | undefined) => field?.type === 'label'
 
@@ -94,19 +94,21 @@ export function PlotView() {
         const scores = names(['score'])
         const categories = names(['label'])
 
-        if (point2d.length > 0) setPointField(point2d[0])
-        if (scores.length >= 2) {
+        if (point2d.length > 0) {
+          setPointField(point2d[0])
+          setMode('point2d')
+        } else if (scores.length >= 2) {
           setXField(scores[0])
           setYField(scores[1])
+          setMode('fields')
         } else if (scores.length === 1 && categories.length > 0) {
           const category = pickDefault(categories, PRESET_CATEGORIES)
           setXField(pickDefault(scores, [PRESET_SCORE]))
           setYField(category)
-          if (category !== PRESET_COLOR && categories.includes(PRESET_COLOR)) {
-            setColorField(PRESET_COLOR)
-          }
+          setMode('fields')
+          categories.splice(categories.indexOf(category!), 1)
         }
-        setMode(point2d.length > 0 ? 'point2d' : 'fields')
+        setColorField(pickDefault(categories, PRESET_COLOR))
       })
       .catch((err: Error) => setError(err.message))
   }, [])

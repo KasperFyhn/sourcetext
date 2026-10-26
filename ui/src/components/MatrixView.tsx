@@ -32,8 +32,8 @@ import { FieldFilters } from './FieldFilters'
 
 // Field names created by SourceText's classification presets: if present, the
 // matrix opens as gold labels (rows) vs. predictions (columns).
-const PRESET_ROW = 'gold_labels'
-const PRESET_COL = 'predictions'
+const PRESET_ROW = 'gold_label'
+const PRESET_COL = 'prediction'
 
 export function MatrixView() {
   // The full field list, for the DocumentView detail pane and the field selectors.

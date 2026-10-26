@@ -8,7 +8,7 @@ def make_source_text(n: int = 120, seed: int = 0) -> SourceText:
     the minimal no-ground-truth case."""
     data = generate(n, seed)
     return SourceText(
-        texts=data.texts,
-        predictions=data.predicted,
-        predictions_confidence=data.confidence,
+        text=data.texts,
+        prediction=data.predicted,
+        confidence=data.confidence,
     )
