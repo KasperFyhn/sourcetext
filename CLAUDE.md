@@ -167,6 +167,14 @@ field's spans everywhere (table values, `/api/spans` counts, document spans) —
 `_span_conditions`/`_active_span_conditions` in `db/queries.py`. A span field's
 table value is its per-document type counts (`[{text, label, count}]`).
 
+**Search**: the search filter (`{op: "search", text, fields}`, `SearchFilter` in
+`db/queries.py`) matches documents where any of `fields` contains `text`, ignoring
+case. A field is a `TextType` field's name, or `"text"` for the source text
+(unambiguous since `text` is `SourceText.__init__`'s own parameter). It's the one
+filter without a `field`; the request models are a union on `op` (`FilterIn` in
+`server/requests.py`). The UI shows it as one search box with a dropdown for what to
+search (`SearchBox` in `FieldFilters.tsx`), "all" sending every text field.
+
 **Not yet implemented**: rendering all of a document's spans at once, coloured by
 label — don't assume it works.
 

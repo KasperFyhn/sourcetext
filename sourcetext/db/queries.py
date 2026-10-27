@@ -66,16 +66,29 @@ class FieldInfo:
 @dataclass
 class FieldFilter:
     field: str
-    op: Literal["in", "range", "contains", "span"]
+    op: Literal["in", "range", "span"]
     # Allowed values ("in"), or span labels ("span"; None stands for unlabelled).
     values: list[str | None] | None = None
     # Value bounds ("range"), or span score bounds ("span").
     min: float | str | None = None
     max: float | str | None = None
-    # Substring to search for ("contains"; "span": in span text or norm text).
+    # "span" only: a substring of the span text or norm text.
     text: str | None = None
     # "span" only: the exact type text (norm text, else span text) of the spans.
     type_text: str | None = None
+
+
+@dataclass
+class SearchFilter:
+    """Documents where any of `fields` contains `text`, ignoring case. A field is a
+    text field's name, or "text" for the source text."""
+
+    text: str
+    fields: list[str]
+    op: Literal["search"] = "search"
+
+
+Filter = FieldFilter | SearchFilter
 
 
 @dataclass
@@ -194,13 +207,13 @@ def list_plot_fields(session: Session) -> list[FieldInfo]:
     return fields
 
 
-def count_documents(session: Session, filters: list[FieldFilter] | None = None) -> int:
+def count_documents(session: Session, filters: list[Filter] | None = None) -> int:
     stmt = _apply_filters(session, select(func.count()).select_from(Document), filters)
     return session.execute(stmt).scalar_one()
 
 
 def _populate_values_and_notes(
-    session: Session, rows: dict[str, DocumentRow], filters: list[FieldFilter] | None = None
+    session: Session, rows: dict[str, DocumentRow], filters: list[Filter] | None = None
 ) -> None:
     """Fill in field values and notes for an `{id: DocumentRow}` mapping, in place.
     A span field's value is its span types in the document (see `_span_types`),
@@ -284,7 +297,7 @@ def _span_conditions(f: FieldFilter, with_label: bool = True) -> list:
     return conditions
 
 
-def _active_span_conditions(filters: list[FieldFilter] | None, field_name: str, with_label: bool = True) -> list:
+def _active_span_conditions(filters: list[Filter] | None, field_name: str, with_label: bool = True) -> list:
     """The conditions of every "span" filter on `field_name` in `filters`: the spans
     meeting them are the field's active spans, the only ones counted, shown or
     highlighted."""
@@ -322,7 +335,31 @@ def _span_types(session: Session, field_name: str, document_ids, conditions: lis
     return out
 
 
-def _apply_filters(session: Session, stmt, filters: list[FieldFilter] | None, id_column=Document.id):
+def _search_subquery(session: Session, f: SearchFilter):
+    """The ids of documents matching a search filter (see `SearchFilter`)."""
+    if not f.text:
+        raise ValueError("A 'search' filter requires non-empty `text`.")
+    if not f.fields:
+        raise ValueError("A 'search' filter requires non-empty `fields`.")
+    text_fields = [name for name in f.fields if name != "text"]
+    unknown = set(text_fields) - set(_field_names(session, Text))
+    if unknown:
+        raise ValueError(f"Not text fields: {', '.join(map(repr, sorted(unknown)))}.")
+    query = f.text.lower()
+    conditions = []
+    if "text" in f.fields:
+        conditions.append(func.lower(Document.text).contains(query, autoescape=True))
+    if text_fields:
+        in_text_fields = select(Text.document_id).where(
+            Text.field_name.in_(text_fields), func.lower(Text.value).contains(query, autoescape=True)
+        )
+        conditions.append(Document.id.in_(in_text_fields))
+    condition = or_(*conditions)
+    # Never correlated: the outer query may select from `documents` too.
+    return select(Document.id).where(condition).correlate(None).scalar_subquery()
+
+
+def _apply_filters(session: Session, stmt, filters: list[Filter] | None, id_column=Document.id):
     """Narrow `stmt` (any select with `id_column`, by default `Document.id`, in its
     FROM clause) to documents
     matching every filter — AND across filters, OR within an "in" filter's
@@ -330,11 +367,15 @@ def _apply_filters(session: Session, stmt, filters: list[FieldFilter] | None, id
     field `field` meeting its conditions (see `_span_conditions`). Each filter is
     applied as `<id_column> IN (<field's matching ids>)`, which composes safely
     regardless of `stmt`'s existing joins/columns (and doesn't duplicate documents
-    with many matching spans). Raises ValueError for an unknown field, an op that
+    with many matching spans). A search filter matches documents where any of its
+    fields contains its text (see `SearchFilter`). Raises ValueError for an unknown field, an op that
     doesn't fit the field's type (e.g. "in" on a score field, or "span" on anything
     but a span field), or a bound that fails to coerce (e.g. a non-ISO date
     string)."""
     for f in filters or []:
+        if isinstance(f, SearchFilter):
+            stmt = stmt.where(id_column.in_(_search_subquery(session, f)))
+            continue
         if f.op == "span":
             stmt = stmt.where(id_column.in_(_span_filter_subquery(session, f)))
             continue
@@ -358,12 +399,6 @@ def _apply_filters(session: Session, stmt, filters: list[FieldFilter] | None, id
                 sub = sub.where(table.value >= coerce(f.min))
             if f.max is not None:
                 sub = sub.where(table.value <= coerce(f.max))
-        elif f.op == "contains":
-            if table is not Text:
-                raise ValueError(f"{f.field!r} does not support a 'contains' filter.")
-            if not f.text:
-                raise ValueError("A 'contains' filter requires non-empty `text`.")
-            sub = sub.where(func.lower(table.value).like(f"%{f.text.lower()}%"))
         else:
             raise ValueError(f"Unknown filter op {f.op!r}.")
         stmt = stmt.where(id_column.in_(sub.correlate(None).scalar_subquery()))
@@ -376,7 +411,7 @@ def list_documents(
     offset: int = 0,
     sort_field: str | None = None,
     sort_desc: bool = False,
-    filters: list[FieldFilter] | None = None,
+    filters: list[Filter] | None = None,
 ) -> list[DocumentRow]:
     """A page of documents with their scalar field values. In insertion order by
     default; pass `sort_field` (`"id"`, `"text"`, or any scalar field name) to
@@ -434,7 +469,7 @@ def list_points_2d(
     session: Session,
     field_name: str,
     group_field: str | None = None,
-    filters: list[FieldFilter] | None = None,
+    filters: list[Filter] | None = None,
 ) -> list[ScatterPointRow]:
     """All (x, y) points for one Point2DType field, joined to their document text
     and, if `group_field` is given, that label field's value per document.
@@ -457,7 +492,7 @@ def list_score_pairs(
     x_field: str,
     y_field: str,
     group_field: str | None = None,
-    filters: list[FieldFilter] | None = None,
+    filters: list[Filter] | None = None,
 ) -> list[ScatterPointRow]:
     """Two ScoreType fields combined into (x, y) pairs, and if `group_field` is
     given, that label field's value per document. Inner join on the two score
@@ -483,7 +518,7 @@ def list_strip_points(
     x_field: str,
     row_field: str | None = None,
     color_field: str | None = None,
-    filters: list[FieldFilter] | None = None,
+    filters: list[Filter] | None = None,
 ) -> list[StripPointRow]:
     """One point per document with a value for the ScoreType field `x_field`, and
     if given, its value for the label fields `row_field` (which row of the
@@ -587,7 +622,7 @@ def summarize_spans(
     session: Session,
     field_name: str,
     limit: int = 100,
-    filters: list[FieldFilter] | None = None,
+    filters: list[Filter] | None = None,
 ) -> SpanSummary:
     """An overview of one span field, for finding documents by their spans: span
     and document counts per label, and per span type (type text and label), most
@@ -641,7 +676,7 @@ class SpanRow:
     score: float | None
 
 
-def list_document_spans(session: Session, document_id: str, filters: list[FieldFilter] | None = None) -> list[SpanRow]:
+def list_document_spans(session: Session, document_id: str, filters: list[Filter] | None = None) -> list[SpanRow]:
     """Every span on `document_id`, across all span fields, in text order. Any
     "span" filters in `filters` prune their field's spans to its active ones (see
     `_active_span_conditions`); other filters are ignored. The document must

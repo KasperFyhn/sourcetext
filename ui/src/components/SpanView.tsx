@@ -22,6 +22,7 @@ import type {
   DocumentsPage,
   Field,
   FieldFilter,
+  Filter,
   Sort,
   SpanSummary,
   SpanTypeSummary,
@@ -40,7 +41,7 @@ export function SpanView() {
   const [spanField, setSpanField] = useState<string | null>(null)
   // Every filter, including the span filter on `spanField` (labels, score, search),
   // which prunes the spans counted, listed and highlighted.
-  const [filters, setFilters] = useState<FieldFilter[]>([])
+  const [filters, setFilters] = useState<Filter[]>([])
   const [selectedType, setSelectedType] = useState<SpanTypeSummary | null>(null)
   const [summary, setSummary] = useState<SpanSummary | null>(null)
   const [page, setPage] = useState(1)
@@ -71,7 +72,7 @@ export function SpanView() {
   }, [spanField, filters])
 
   const spanFilter = filters.find(
-    (f) => f.op === 'span' && f.field === spanField,
+    (f): f is FieldFilter => f.op === 'span' && f.field === spanField,
   )
 
   // The documents with a matching span: the span filter (always present, so only

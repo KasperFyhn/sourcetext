@@ -21,7 +21,7 @@ import type {
   Document,
   DocumentsPage,
   Field,
-  FieldFilter,
+  Filter,
   Sort,
 } from '../api'
 import { ConfusionMatrix } from './ConfusionMatrix'
@@ -46,7 +46,7 @@ export function MatrixView() {
   const [sort, setSort] = useState<Sort | null>(null)
   // Filters on the table's columns. They narrow only the listed documents, not the
   // matrix counts, and carry over when another cell is selected.
-  const [filters, setFilters] = useState<FieldFilter[]>([])
+  const [filters, setFilters] = useState<Filter[]>([])
   const [documents, setDocuments] = useState<DocumentsPage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)

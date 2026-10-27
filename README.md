@@ -44,8 +44,8 @@ the background, so you can keep working and call `st.stop_server()` when done.
 ## What you get
 
 - **Table view.** Every document with its fields as columns. Sort by any column,
-  and filter by label, score range, date range or spans (their label, score and
-  text).
+  search the source text and text fields, and filter by label, score range, date
+  range or spans (their label, score and text).
 - **Plot view.** Plot documents by a 2D embedding projection (e.g. UMAP), or put
   any two fields on the axes, optionally coloured by a label. Two scores
   give a scatter plot, useful for spotting where a model's confidence and a second
@@ -272,7 +272,7 @@ SourceText(
 
 | Type           | Values                                               | In the app                                                    | Typical use                            |
 |----------------|------------------------------------------------------|---------------------------------------------------------------|----------------------------------------|
-| `TextType`     | `str`                                                | shown as text                                                 | titles, authors, source metadata       |
+| `TextType`     | `str`                                                | shown as text; searchable                                     | titles, authors, source metadata       |
 | `LabelType`    | `str`, `int`, `bool`                                 | badge; filter by value; plot axis or colour; confusion matrix | classes, gold labels, clusters, topics |
 | `ScoreType`    | `float`, `int`                                       | filter by range; plot axis                                    | confidence, sentiment, any metric      |
 | `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps           |

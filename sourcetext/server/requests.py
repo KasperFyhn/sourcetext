@@ -1,6 +1,7 @@
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi_camelcase import CamelModel
+from pydantic import Field
 
 
 class FieldOut(CamelModel):
@@ -14,12 +15,21 @@ class FieldOut(CamelModel):
 
 class FieldFilterIn(CamelModel):
     field: str
-    op: Literal["in", "range", "contains", "span"]
+    op: Literal["in", "range", "span"]
     values: list[str | None] | None = None
     min: float | str | None = None
     max: float | str | None = None
     text: str | None = None
     type_text: str | None = None
+
+
+class SearchFilterIn(CamelModel):
+    op: Literal["search"]
+    text: str
+    fields: list[str]
+
+
+FilterIn = Annotated[FieldFilterIn | SearchFilterIn, Field(discriminator="op")]
 
 
 class DocumentOut(CamelModel):

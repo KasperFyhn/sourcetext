@@ -76,7 +76,7 @@ export function DocumentTable({
             ID
           </SortableHeader>
           <SortableHeader field="text" sort={sort} onSort={onSort}>
-            Text
+            text
           </SortableHeader>
           {fields.map((field) => (
             <SortableHeader

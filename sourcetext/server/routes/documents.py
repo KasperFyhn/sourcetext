@@ -9,30 +9,34 @@ from sourcetext.server.requests import (
     DocumentOut,
     DocumentSpansResponse,
     DocumentsResponse,
-    FieldFilterIn,
     FieldsResponse,
+    FilterIn,
     NoteIn,
     NoteOut,
     ScatterResponse,
+    SearchFilterIn,
     SpansResponse,
     StripResponse,
 )
 
 router = APIRouter(prefix="/api")
 
-_field_filters_adapter = TypeAdapter(list[FieldFilterIn])
+_filters_adapter = TypeAdapter(list[FilterIn])
 
 
-def _parse_filters(filters: str | None) -> list[db.FieldFilter] | None:
-    """Decode the `filters` query param (a JSON-encoded array — see FieldFilterIn)
-    into `db.FieldFilter`s, or raise a 400 if it's malformed."""
+def _parse_filters(filters: str | None) -> list[db.Filter] | None:
+    """Decode the `filters` query param (a JSON-encoded array — see FilterIn) into
+    `db.FieldFilter`s and `db.SearchFilter`s, or raise a 400 if it's malformed."""
     if filters is None:
         return None
     try:
-        parsed = _field_filters_adapter.validate_json(filters)
+        parsed = _filters_adapter.validate_json(filters)
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return [db.FieldFilter(**f.model_dump()) for f in parsed]
+    return [
+        db.SearchFilter(f.text, f.fields) if isinstance(f, SearchFilterIn) else db.FieldFilter(**f.model_dump())
+        for f in parsed
+    ]
 
 
 def _fields(request: Request, session) -> list[dict]:
