@@ -55,7 +55,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Full history with tags: hatch-vcs derives the package version from them.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: ./.github/actions/build-package
 

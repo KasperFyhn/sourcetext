@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "sourcetext"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Return to source text alongside NLP model output and record interpretive judgments in situ."
 readme = "README.md"
 license = "MIT"
@@ -52,6 +52,14 @@ dev = [
     "twine>=5.0",
     "httpx2",
 ]
+
+# The version comes from the latest git tag (v0.2.0 -> 0.2.0; later commits get dev
+# versions), written to sourcetext/_version.py at build/install time.
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "sourcetext/_version.py"
 
 # The built UI (sourcetext/server/static/) is gitignored, which hatch would otherwise
 # skip. `artifacts` must be set at build level, not just on the wheel target, because

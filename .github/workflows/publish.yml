@@ -19,21 +19,20 @@ jobs:
       id-token: write # PyPI trusted publishing (OIDC), no API token needed
 
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Check version matches release tag
-        run: |
-          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          tag="${GITHUB_REF_NAME#v}"
-          if [ "$version" != "$tag" ]; then
-            echo "pyproject.toml version ($version) does not match release tag ($GITHUB_REF_NAME)"
-            exit 1
-          fi
-
       # The package built and verified by the CI build job.
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
+
+      # The version comes from the git tag, so this fails if the build didn't see it.
+      - name: Check built version matches release tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ ! -f "dist/sourcetext-${version}-py3-none-any.whl" ] || [ ! -f "dist/sourcetext-${version}.tar.gz" ]; then
+            echo "Built package version does not match release tag ($GITHUB_REF_NAME):"
+            ls dist/
+            exit 1
+          fi
 
       - uses: pypa/gh-action-pypi-publish@release/v1

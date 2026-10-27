@@ -138,7 +138,7 @@ class TextType(_PrimaryType):
     Not the interpretive-annotation field — that is owned by the served app itself.
     """
 
-    value_types: ClassVar[tuple[type, ...]] = (str,)
+    value_types: ClassVar[tuple[type, ...]] = get_args(TextValue)
 
 
 class LabelType(_PrimaryType):
@@ -235,9 +235,9 @@ class Point2DType(_PrimaryType):
     output): (x, y) coordinates for a scatter-plot layout.
     """
 
-    # Not derived via get_args() — same reason as SpanType: this is a
-    # fixed-length pair, not a flat scalar union, so the per-point shape is
-    # checked separately below.
+    # Not derived via get_args(): Point2DValue is a fixed-length pair, not a flat
+    # scalar union. Lists are allowed because numpy arrays (the usual UMAP output)
+    # resolve to one list per point; the (x, y) shape is checked below.
     value_types: ClassVar[tuple[type, ...]] = (tuple, list)
 
     def _validate_values(self, values: list) -> None:
