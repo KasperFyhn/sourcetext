@@ -36,10 +36,12 @@ pre-commit run --all-files              # run both hooks without committing
 
 **CI / releasing**: `.github/workflows/ci.yml` runs lint (ruff + oxlint/prettier),
 pytest on 3.10–3.13, and a full package build (`.github/actions/build-package`) on
-pushes/PRs to `main`. To release, bump `version` in `pyproject.toml` and publish a
-GitHub release tagged `v<version>`: `publish.yml` reruns CI and uploads the `dist`
-artifact from its build job to PyPI via trusted publishing (it fails if the tag and
-version disagree). The built UI
+pushes/PRs to `main`. The version is never set by hand: hatch-vcs derives it from the
+latest git tag (untagged commits get dev versions) and writes the gitignored
+`sourcetext/_version.py` (`sourcetext.__version__`) at build/install time, so the CI
+build job checks out with `fetch-depth: 0`. To release, publish a GitHub release tagged
+`v<version>`: `publish.yml` reruns CI and uploads the `dist` artifact from its build job
+to PyPI via trusted publishing (it fails if the built version doesn't match the tag). The built UI
 is gitignored, so `pyproject.toml` sets hatch `artifacts` at build level (not just on
 the wheel target): `python -m build` builds the wheel *from the sdist*, so the sdist
 must carry the UI too.

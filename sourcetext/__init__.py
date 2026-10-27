@@ -1,3 +1,4 @@
+from sourcetext._version import __version__
 from sourcetext.sourcetext import SourceText
 from sourcetext.types import (
     LabelType,
@@ -9,6 +10,7 @@ from sourcetext.types import (
 )
 
 __all__ = [
+    "__version__",
     "SourceText",
     "LabelType",
     "ScoreType",
