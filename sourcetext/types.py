@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 # The shape of a single value for each primary type — used both for the
-# public-facing signatures (e.g. SourceText's predictions=/gold=) and, via
+# public-facing signatures (e.g. SourceText's prediction=/gold_label=) and, via
 # get_args() below, as the one source of truth for each type's runtime
 # validation, so the two can't silently drift apart.
 IdValue: TypeAlias = str | int

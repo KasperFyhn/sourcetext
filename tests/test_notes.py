@@ -174,7 +174,7 @@ def test_sourcetext_loads_notes_file(tmp_path):
     path = tmp_path / "notes.jsonl"
     _write(path, [_record("b", "A dog ran.", "dog note")])
 
-    st = SourceText(TEXTS, ids=["a", "b", "c"], notes_file=path)
+    st = SourceText(TEXTS, doc_id=["a", "b", "c"], notes_file=path)
 
     assert _notes(st._session) == {"b": "dog note"}
 
