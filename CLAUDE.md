@@ -6,10 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Python library for DH/NLP researchers to review model output (classification,
 NER, sentiment, clustering, etc.) alongside source text and record interpretive
-judgments in situ. `README.md` is both the landing page (also rendered on PyPI, so
-links in it must be absolute GitHub URLs) and the user-facing documentation: its
-lower "Documentation" half is the API reference. Keep it in sync with the code,
-including its "Project status" list of what isn't built yet. `ROADMAP.md` lists
+judgments in situ. `README.md` is the landing page (also rendered on PyPI, so
+links in it must be absolute GitHub URLs): keep it short, with the quickstart, a
+compact field types table and links into `docs/`. The user-facing documentation is
+in `docs/` (`api.md`: the API reference, `examples.md`, `notes.md`). Keep both in
+sync with the code, including the README's "Project status" list of what isn't
+built yet. `ROADMAP.md` lists
 planned features; move items out of it as they ship.
 
 ## Commands
@@ -99,7 +101,7 @@ them:
 **Adding a new primary type** touches all four files plus the README: a class
 in `types.py`, a table in `schema.py`, an `add_*` function in `db.py`, a
 dispatch branch in `sourcetext.py`'s loop, an export in `sourcetext/__init__.py`,
-and a row in the README's "Field types" table.
+and a row in the field types tables in both `docs/api.md` and the README.
 
 **Server + UI (scaffold only)**: `SourceText.start_server()` runs the FastAPI app
 in `sourcetext/server/` via `BackgroundServer` (blocks in a plain script,
