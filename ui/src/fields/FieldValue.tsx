@@ -1,8 +1,8 @@
 import { Badge, Group, Text } from '@mantine/core'
 
 import type { Field, FieldValue, SpanTypeCount } from '../api/types'
-import { LabelDefinitionInfo } from './LabelDefinition'
-import { SpanBadge } from './SpanBadge'
+import { LabelDefinitionInfo } from './label/LabelDefinition'
+import { SpanBadge } from './span/SpanBadge'
 
 // How many of a document's span types a span field's value shows, most frequent
 // first, before folding the rest into "+N".

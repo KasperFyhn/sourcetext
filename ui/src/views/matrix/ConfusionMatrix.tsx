@@ -1,11 +1,11 @@
 import { Table, Text } from '@mantine/core'
 import { useMemo } from 'react'
 
-import type { CrosstabCell } from '../api/matrix'
-import { NO_VALUE_LABEL } from '../colors'
-import { categoryKeys } from '../plotting'
-import { LabelDefinitionInfo } from './LabelDefinition'
-import type { LabelDefinitions } from './LabelDefinition'
+import type { CrosstabCell } from '../../api/matrix'
+import { LabelDefinitionInfo } from '../../fields/label/LabelDefinition'
+import type { LabelDefinitions } from '../../fields/label/LabelDefinition'
+import { NO_VALUE_LABEL } from '../../lib/colors'
+import { categoryKeys } from '../../lib/plotting'
 
 export interface MatrixCell {
   row: string

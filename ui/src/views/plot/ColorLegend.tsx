@@ -1,8 +1,8 @@
 import { Flex, Paper, Stack, Text } from '@mantine/core'
 
-import type { ColorScale } from '../colors'
-import { LabelDefinitionInfo } from './LabelDefinition'
-import type { LabelDefinitions } from './LabelDefinition'
+import { LabelDefinitionInfo } from '../../fields/label/LabelDefinition'
+import type { LabelDefinitions } from '../../fields/label/LabelDefinition'
+import type { ColorScale } from '../../lib/colors'
 
 // The plot views' color key, overlaid in the top-right corner. Entries whose label
 // has a definition get an info icon showing it on hover.

@@ -11,15 +11,25 @@ import {
 } from '@mantine/core'
 import { useEffect, useMemo, useState } from 'react'
 
-import { fetchFields, fetchTabularDocuments, PAGE_SIZE } from '../api/documents'
-import type { DocumentsPage } from '../api/documents'
-import { fetchSpanSummary } from '../api/spans'
-import type { SpanSummary, SpanTypeSummary } from '../api/spans'
-import type { Document, Field, FieldFilter, Filter, Sort } from '../api/types'
-import { DocumentTable } from './DocumentTable'
-import { DocumentView } from './DocumentView'
-import { FieldFilters, SpanFilter } from './FieldFilters'
-import { SpanBadge } from './SpanBadge'
+import {
+  fetchFields,
+  fetchTabularDocuments,
+  PAGE_SIZE,
+} from '../../api/documents'
+import type { DocumentsPage } from '../../api/documents'
+import { fetchSpanSummary } from '../../api/spans'
+import type { SpanSummary, SpanTypeSummary } from '../../api/spans'
+import type {
+  Document,
+  Field,
+  FieldFilter,
+  Filter,
+  Sort,
+} from '../../api/types'
+import { DocumentTable } from '../../common/DocumentTable'
+import { DocumentView } from '../../document/DocumentView'
+import { FieldFilters, SpanFilter } from '../../fields/FieldFilters'
+import { SpanBadge } from '../../fields/span/SpanBadge'
 
 // Find documents by their spans: narrow a span field's spans by label, score and
 // text, then pick a span type to list the documents containing it, with its spans

@@ -20,7 +20,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 
 import type { Field, FieldFilter, Filter, SearchFilter } from '../api/types'
-import { LabelDefinitionInfo } from './LabelDefinition'
+import { LabelDefinitionInfo } from './label/LabelDefinition'
 
 interface Props {
   fields: Field[]

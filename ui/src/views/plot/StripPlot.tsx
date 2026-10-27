@@ -4,12 +4,15 @@ import { ParentSize } from '@visx/responsive'
 import { scaleLinear } from '@visx/scale'
 import { useMemo, useState } from 'react'
 
-import type { StripPoint } from '../api/plot'
-import { buildColorScale, NO_VALUE_LABEL } from '../colors'
-import { categoryKeys, computeDomain } from '../plotting'
+import type { StripPoint } from '../../api/plot'
+import {
+  definitionOf,
+  LabelDefinitionInfo,
+} from '../../fields/label/LabelDefinition'
+import type { LabelDefinitions } from '../../fields/label/LabelDefinition'
+import { buildColorScale, NO_VALUE_LABEL } from '../../lib/colors'
+import { categoryKeys, computeDomain } from '../../lib/plotting'
 import { ColorLegend } from './ColorLegend'
-import { definitionOf, LabelDefinitionInfo } from './LabelDefinition'
-import type { LabelDefinitions } from './LabelDefinition'
 
 // Which axis holds the categories: 'horizontal' lays each category out as a row
 // (score on the x axis), 'vertical' as a column (score on the y axis).

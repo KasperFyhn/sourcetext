@@ -5,9 +5,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchDocumentSpans } from '../api/spans'
 import type { Span } from '../api/spans'
 import type { Document, Field, Filter } from '../api/types'
+import { FieldValueView } from '../fields/FieldValue'
+import { SpanBadge } from '../fields/span/SpanBadge'
 import { DocumentNotes } from './DocumentNotes'
-import { FieldValueView } from './FieldValueView'
-import { SpanBadge } from './SpanBadge'
 
 // One span type: the spans in a span field sharing a type text and label.
 export interface SpanTypeKey {

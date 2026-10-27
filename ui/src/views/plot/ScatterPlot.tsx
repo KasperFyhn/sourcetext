@@ -5,10 +5,10 @@ import { ParentSize } from '@visx/responsive'
 import { scaleLinear } from '@visx/scale'
 import { useMemo, useRef, useState } from 'react'
 
-import type { ScatterPoint } from '../api/plot'
-import { buildColorScale } from '../colors'
+import type { ScatterPoint } from '../../api/plot'
+import type { LabelDefinitions } from '../../fields/label/LabelDefinition'
+import { buildColorScale } from '../../lib/colors'
 import { ColorLegend } from './ColorLegend'
-import type { LabelDefinitions } from './LabelDefinition'
 
 interface Props {
   points: ScatterPoint[]

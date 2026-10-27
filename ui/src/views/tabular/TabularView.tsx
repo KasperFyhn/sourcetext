@@ -1,12 +1,12 @@
 import { Alert, Box, Flex, Loader, Pagination, Stack } from '@mantine/core'
 import { useEffect, useState } from 'react'
 
-import { fetchTabularDocuments, PAGE_SIZE } from '../api/documents'
-import type { DocumentsPage } from '../api/documents'
-import type { Document, Filter, Sort } from '../api/types'
-import { DocumentTable } from './DocumentTable'
-import { DocumentView } from './DocumentView'
-import { FieldFilters } from './FieldFilters'
+import { fetchTabularDocuments, PAGE_SIZE } from '../../api/documents'
+import type { DocumentsPage } from '../../api/documents'
+import type { Document, Filter, Sort } from '../../api/types'
+import { DocumentTable } from '../../common/DocumentTable'
+import { DocumentView } from '../../document/DocumentView'
+import { FieldFilters } from '../../fields/FieldFilters'
 
 export function TabularView() {
   const [page, setPage] = useState(1)

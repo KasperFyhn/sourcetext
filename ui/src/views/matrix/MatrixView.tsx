@@ -10,16 +10,20 @@ import {
 } from '@mantine/core'
 import { useEffect, useState } from 'react'
 
-import { fetchFields, fetchTabularDocuments, PAGE_SIZE } from '../api/documents'
-import type { DocumentsPage } from '../api/documents'
-import { fetchCrosstab } from '../api/matrix'
-import type { CrosstabCell } from '../api/matrix'
-import type { Document, Field, Filter, Sort } from '../api/types'
+import {
+  fetchFields,
+  fetchTabularDocuments,
+  PAGE_SIZE,
+} from '../../api/documents'
+import type { DocumentsPage } from '../../api/documents'
+import { fetchCrosstab } from '../../api/matrix'
+import type { CrosstabCell } from '../../api/matrix'
+import type { Document, Field, Filter, Sort } from '../../api/types'
+import { DocumentTable } from '../../common/DocumentTable'
+import { DocumentView } from '../../document/DocumentView'
+import { FieldFilters } from '../../fields/FieldFilters'
 import { ConfusionMatrix } from './ConfusionMatrix'
 import type { MatrixCell } from './ConfusionMatrix'
-import { DocumentTable } from './DocumentTable'
-import { DocumentView } from './DocumentView'
-import { FieldFilters } from './FieldFilters'
 
 // Field names created by SourceText's classification presets: if present, the
 // matrix opens as gold labels (rows) vs. predictions (columns).

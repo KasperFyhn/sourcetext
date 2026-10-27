@@ -7,7 +7,7 @@ import {
 import type { ReactNode } from 'react'
 
 import type { Document, Field, Sort } from '../api/types'
-import { FieldValueView } from './FieldValueView'
+import { FieldValueView } from '../fields/FieldValue'
 
 interface Props {
   fields: Field[]
