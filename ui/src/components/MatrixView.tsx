@@ -227,7 +227,7 @@ export function MatrixView() {
           )}
         </Stack>
       </Box>
-      <DocumentView fields={fields} document={selected} />
+      <DocumentView fields={fields} document={selected} filters={filters} />
     </Flex>
   )
 }

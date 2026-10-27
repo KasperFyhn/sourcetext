@@ -5,6 +5,7 @@ import {
   Input,
   NumberInput,
   Stack,
+  Text,
   TextInput,
 } from '@mantine/core'
 import {
@@ -46,7 +47,7 @@ function LabelFilter({ field, current, onChange }: ControlProps) {
   return (
     <Chip.Group
       multiple
-      value={current?.values ?? []}
+      value={(current?.values ?? []).filter((v) => v !== null)}
       onChange={(values) =>
         onChange((prev) =>
           setFieldFilter(
@@ -168,44 +169,178 @@ function SteppedNumberInput({
   )
 }
 
-function ScoreFilter({ field, current, onChange }: ControlProps) {
+interface ScoreRangeProps {
+  label?: string
+  placeholders?: [string, string]
+  field: Field
+  min: number | undefined
+  max: number | undefined
+  onChange: (min: number | undefined, max: number | undefined) => void
+}
+
+// Min and max inputs within a field's numeric bounds (`field.min`/`field.max`).
+function ScoreRange({
+  label,
+  placeholders = ['min', 'max'],
+  field,
+  min,
+  max,
+  onChange,
+}: ScoreRangeProps) {
   const bound = (b: number | string | null | undefined): number | undefined =>
     typeof b === 'number' ? b : undefined
   const fieldMin = bound(field.min)
   const fieldMax = bound(field.max)
   const step = stepForRange(fieldMin, fieldMax)
-  const min = current?.min as number | undefined
-  const max = current?.max as number | undefined
-  const update = (nextMin: number | undefined, nextMax: number | undefined) =>
-    onChange((prev) =>
-      setFieldFilter(
-        prev,
-        field.name,
-        nextMin !== undefined || nextMax !== undefined
-          ? { field: field.name, op: 'range', min: nextMin, max: nextMax }
-          : null,
-      ),
-    )
   return (
     <Group gap={4} wrap="nowrap" align="flex-end">
       <SteppedNumberInput
-        label={field.name}
-        placeholder={fieldMin != null ? `min ${fieldMin}` : 'min'}
+        label={label}
+        placeholder={
+          fieldMin != null ? `${placeholders[0]} ${fieldMin}` : placeholders[0]
+        }
         value={min}
         min={fieldMin}
         max={fieldMax}
         step={step}
-        onChange={(v) => update(v, max)}
+        onChange={(v) => onChange(v, max)}
       />
       <SteppedNumberInput
-        placeholder={fieldMax != null ? `max ${fieldMax}` : 'max'}
+        placeholder={
+          fieldMax != null ? `${placeholders[1]} ${fieldMax}` : placeholders[1]
+        }
         value={max}
         min={fieldMin}
         max={fieldMax}
         step={step}
-        onChange={(v) => update(min, v)}
+        onChange={(v) => onChange(min, v)}
       />
     </Group>
+  )
+}
+
+function ScoreFilter({ field, current, onChange }: ControlProps) {
+  return (
+    <ScoreRange
+      label={field.name}
+      field={field}
+      min={current?.min as number | undefined}
+      max={current?.max as number | undefined}
+      onChange={(min, max) =>
+        onChange((prev) =>
+          setFieldFilter(
+            prev,
+            field.name,
+            min !== undefined || max !== undefined
+              ? { field: field.name, op: 'range', min, max }
+              : null,
+          ),
+        )
+      }
+    />
+  )
+}
+
+// A Chip value standing for unlabelled spans (a label filter's null).
+const NO_LABEL_VALUE = '\u0000'
+export const NO_LABEL = '(no label)'
+
+interface SpanFilterProps extends ControlProps {
+  // Spans per label (null: unlabelled), shown on the label chips if given.
+  labelCounts?: Map<string | null, number>
+}
+
+// One "span" filter for a span field: label chips, a score range, and a search in
+// span text and norm text. It narrows the documents to those with a matching span,
+// and prunes the field's spans everywhere to the matching ones.
+export function SpanFilter({
+  field,
+  current,
+  onChange,
+  labelCounts,
+}: SpanFilterProps) {
+  const [text, setText] = useState(current?.text ?? '')
+  const [debounced] = useDebouncedValue(text, 300)
+
+  const update = (patch: Partial<FieldFilter>) =>
+    onChange((prev) => {
+      const existing = prev.find((f) => f.field === field.name)
+      const next: FieldFilter = {
+        ...existing,
+        ...patch,
+        field: field.name,
+        op: 'span',
+      }
+      const empty =
+        !next.values?.length &&
+        next.min === undefined &&
+        next.max === undefined &&
+        !next.text
+      return setFieldFilter(prev, field.name, empty ? null : next)
+    })
+
+  useEffect(() => {
+    update({ text: debounced || undefined })
+    // Depends only on the debounced value, as in TextFilter: `update` applies
+    // against the latest filters through the functional-update form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced, field.name])
+
+  const labels = (field.values ?? []).map((v) =>
+    v === null ? null : String(v),
+  )
+  return (
+    <Input.Wrapper label={field.name}>
+      <Stack gap={6}>
+        <Chip.Group
+          multiple
+          value={(current?.values ?? []).map((v) => v ?? NO_LABEL_VALUE)}
+          onChange={(values) =>
+            update({
+              values:
+                values.length > 0
+                  ? values.map((v) => (v === NO_LABEL_VALUE ? null : v))
+                  : undefined,
+            })
+          }
+        >
+          <Group gap={6}>
+            {labels.map((label) => (
+              <Chip
+                key={label ?? NO_LABEL_VALUE}
+                value={label ?? NO_LABEL_VALUE}
+                size="xs"
+                variant="outline"
+              >
+                {label ?? NO_LABEL}
+                {labelCounts && (
+                  <Text span size="xs" opacity={0.6} ml={4}>
+                    {labelCounts.get(label) ?? 0}
+                  </Text>
+                )}
+              </Chip>
+            ))}
+          </Group>
+        </Chip.Group>
+        <Group gap="xs" align="flex-end">
+          {field.min != null && (
+            <ScoreRange
+              placeholders={['score ≥', 'score ≤']}
+              field={field}
+              min={current?.min as number | undefined}
+              max={current?.max as number | undefined}
+              onChange={(min, max) => update({ min, max })}
+            />
+          )}
+          <TextInput
+            placeholder="Search spans…"
+            value={text}
+            onChange={(e) => setText(e.currentTarget.value)}
+            w={200}
+          />
+        </Group>
+      </Stack>
+    </Input.Wrapper>
   )
 }
 
@@ -360,6 +495,15 @@ export function FieldFilters({ fields, filters, onChange }: Props) {
         if (field.type === 'label')
           return (
             <LabelFilter
+              key={field.name}
+              field={field}
+              current={current}
+              onChange={onChange}
+            />
+          )
+        if (field.type === 'span')
+          return (
+            <SpanFilter
               key={field.name}
               field={field}
               current={current}

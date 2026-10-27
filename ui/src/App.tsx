@@ -1,13 +1,19 @@
 import { ActionIcon, Box, Flex, Stack, Tooltip } from '@mantine/core'
-import { IconChartScatter, IconGrid3x3, IconTable } from '@tabler/icons-react'
+import {
+  IconChartScatter,
+  IconGrid3x3,
+  IconTextColor,
+  IconTable,
+} from '@tabler/icons-react'
 import { useState } from 'react'
 
 import { MatrixView } from './components/MatrixView'
 import { PlotView } from './components/PlotView'
+import { SpanView } from './components/SpanView'
 import { TabularView } from './components/TabularView'
 import { NotesFileProvider } from './contexts/NotesFileContext'
 
-type View = 'tabular' | 'plot' | 'matrix'
+type View = 'tabular' | 'plot' | 'matrix' | 'spans'
 
 function App() {
   const [view, setView] = useState<View>('tabular')
@@ -50,11 +56,21 @@ function App() {
               <IconGrid3x3 size={20} />
             </ActionIcon>
           </Tooltip>
+          <Tooltip label="Span view" position="right">
+            <ActionIcon
+              variant={view === 'spans' ? 'filled' : 'subtle'}
+              aria-label="Span view"
+              onClick={() => setView('spans')}
+            >
+              <IconTextColor size={20} />
+            </ActionIcon>
+          </Tooltip>
         </Stack>
         <Box flex={1} style={{ overflow: 'hidden' }}>
           {view === 'tabular' && <TabularView />}
           {view === 'plot' && <PlotView />}
           {view === 'matrix' && <MatrixView />}
+          {view === 'spans' && <SpanView />}
         </Box>
       </Flex>
     </NotesFileProvider>

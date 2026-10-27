@@ -18,9 +18,9 @@ interface Props {
   onSort: (field: string) => void
 }
 
-// point_2d fields have no single orderable value, so they're not sortable.
+// point_2d and span fields have no single orderable value, so they're not sortable.
 function isSortable(field: Field): boolean {
-  return field.type !== 'point_2d'
+  return field.type !== 'point_2d' && field.type !== 'span'
 }
 
 interface SortableHeaderProps {

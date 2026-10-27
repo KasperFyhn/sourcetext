@@ -321,7 +321,7 @@ export function PlotView() {
           )}
         </Stack>
       </Box>
-      <DocumentView fields={fields} document={selected} />
+      <DocumentView fields={fields} document={selected} filters={filters} />
     </Flex>
   )
 }

@@ -75,7 +75,12 @@ them:
   taking a `Session` plus parallel `document_ids`/`values` and adding rows
   *without committing* — the caller controls the transaction. Most `add_*`
   functions delegate to the private `_add_scalar_field` helper (mirrors the
-  `_ScalarField` mixin: cast, skip `None` values, insert). `get_sessionmaker()`
+  `_ScalarField` mixin: cast, skip `None` values, insert). Rows are inserted in
+  bulk with SQLAlchemy's `session.execute(insert(Model), rows)` (`_bulk_insert` in
+  `db/population.py`), not as ORM objects, since one ORM object per row took
+  minutes for ~1M spans (bulk: ~20 s); `add_*` return the row count. Don't order
+  rows by id within one field; use `rowid` or an explicit column. Spans store their
+  covered `span_text` at insert, cut in Python from the document text. `get_sessionmaker()`
   builds a `sessionmaker` bound to a DuckDB engine via `duckdb-engine`
   (`Base.metadata.create_all` runs automatically), defaulting to an in-memory
   DB but accepting any SQLAlchemy URL.
@@ -112,7 +117,11 @@ for client-side coloring), `GET /api/documents/strip` (unpaginated
 `colorField=` — the plot view uses it when one axis is categorical), `GET
 /api/documents/crosstab` (`{row, col, count}` per value pair of the label
 fields `rowField=`/`colField=`, for the confusion matrix view; its cell's documents
-come from the tabular route with two "in" filters),
+come from the tabular route with two "in" filters), `GET /api/spans` (the span
+view: span/document counts per label and per span type of the span field `field=`,
+default the first; its documents come from the tabular route with the same
+`filters=` plus the selected type's `typeText`), `GET /api/documents/{id}/spans`
+(one document's spans, for the document pane's badges and highlights),
 `GET /api/documents/fields` (the full field list, with label fields' `definitions`, for
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
@@ -148,7 +157,18 @@ UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
-**Not yet implemented**: span rendering in the UI — don't assume it works.
+**Spans**: a span has `start`/`end` and nullable `label`, `score`, `norm_text`. Its
+*span text* is what it covers; its *type text* is `norm_text ?? span text`; a *span
+type* is (field, type text, label), shown as a badge, and its spans (tokens) are
+what gets highlighted. A `"span"` filter (`{field, op: "span", values?: labels
+(null: unlabelled), min?/max?: score, text?: contains in span or norm text,
+typeText?: exact}`) matches documents with a matching span *and* prunes that
+field's spans everywhere (table values, `/api/spans` counts, document spans) — see
+`_span_conditions`/`_active_span_conditions` in `db/queries.py`. A span field's
+table value is its per-document type counts (`[{text, label, count}]`).
+
+**Not yet implemented**: rendering all of a document's spans at once, coloured by
+label — don't assume it works.
 
 **Label definitions** ride along on the field list (`FieldInfo.definitions`, also
 on the scatter route's plot fields), not a separate route. The UI shows them via

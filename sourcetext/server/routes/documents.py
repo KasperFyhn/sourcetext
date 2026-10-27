@@ -7,12 +7,14 @@ import sourcetext.db as db
 from sourcetext.server.requests import (
     CrosstabResponse,
     DocumentOut,
+    DocumentSpansResponse,
     DocumentsResponse,
     FieldFilterIn,
     FieldsResponse,
     NoteIn,
     NoteOut,
     ScatterResponse,
+    SpansResponse,
     StripResponse,
 )
 
@@ -31,6 +33,19 @@ def _parse_filters(filters: str | None) -> list[db.FieldFilter] | None:
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return [db.FieldFilter(**f.model_dump()) for f in parsed]
+
+
+def _fields(request: Request, session) -> list[dict]:
+    """The full field list with its filter metadata (`db.list_fields`), computed
+    once per DB: typed fields never change after `SourceText` is built, and the
+    metadata scans every value. Keyed by the sessionmaker, so a new DB (e.g. in
+    tests) isn't served a stale list."""
+    sessionmaker = request.app.state.db_sessionmaker
+    cached = getattr(request.app.state, "fields_cache", None)
+    if cached is None or cached[0] is not sessionmaker:
+        cached = (sessionmaker, [asdict(f) for f in db.list_fields(session)])
+        request.app.state.fields_cache = cached
+    return cached[1]
 
 
 # Must stay `async def`: in-memory DuckDB only shares data within the thread that
@@ -59,7 +74,7 @@ async def get_tabular_documents(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         return {
-            "fields": [asdict(f) for f in db.list_fields(session)],
+            "fields": _fields(request, session),
             "documents": [asdict(d) for d in documents],
             "total": total,
         }
@@ -140,7 +155,33 @@ async def get_fields(request: Request):
     """The full field list (all typed-field kinds), for a document-detail pane that
     isn't otherwise loading a page of documents (e.g. the scatter view)."""
     with request.app.state.db_sessionmaker() as session:
-        return {"fields": [asdict(f) for f in db.list_fields(session)]}
+        return {"fields": _fields(request, session)}
+
+
+@router.get("/spans", response_model=SpansResponse)
+async def get_spans(
+    request: Request,
+    field: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    filters: str | None = Query(None),
+):
+    """An overview of the span field `field` (default: the first one) for the span
+    view: counts per label, and the most frequent span types. A "span" filter on
+    `field` in `filters` narrows which spans are counted; filters on other fields
+    narrow which documents. Its documents come from the tabular route with the same
+    filters."""
+    with request.app.state.db_sessionmaker() as session:
+        field_filters = _parse_filters(filters)
+        fields = db.list_span_fields(session)
+        if field is None and fields:
+            field = fields[0]
+        if field is None:
+            return {"fields": [], "field": None, "labels": [], "types": [], "total_types": 0}
+        try:
+            summary = db.summarize_spans(session, field, limit=limit, filters=field_filters)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return {"fields": fields, "field": field, **asdict(summary)}
 
 
 # Registered after the static `/documents/tabular`, `/documents/scatter`, `/documents/strip`,
@@ -183,3 +224,18 @@ async def put_note(document_id: str, note: NoteIn, request: Request) -> None:
             session.rollback()
             raise HTTPException(status_code=500, detail=f"Could not write {notes_file.path}: {e}")
         session.commit()
+
+
+@router.get("/documents/{document_id}/spans", response_model=DocumentSpansResponse)
+async def get_document_spans(document_id: str, request: Request, filters: str | None = Query(None)):
+    """Every span on one document, across all span fields, in text order. "span"
+    filters in `filters` prune their field's spans; other filters are ignored."""
+    with request.app.state.db_sessionmaker() as session:
+        field_filters = _parse_filters(filters)
+        try:
+            spans = db.list_document_spans(session, document_id, filters=field_filters)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"No document with id {document_id!r}.")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return {"spans": [asdict(s) for s in spans]}
