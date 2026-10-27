@@ -17,9 +17,6 @@ should yet.
 - **Render spans.** Spans are highlighted one type at a time, by clicking its
   badge. Show every span in the text at once, coloured by label, with their scores
   on hover.
-- **Show group definitions.** Definitions passed via `group_definitions=` /
-  `GroupType(definitions=...)` are stored but not shown. Show them next to group
-  badges, filter options and plot legends.
 - **Temporal fields on the plot.** `TemporalType` fields can only be filtered by
   today. Allow them as a plot axis, e.g. a score over time or a strip plot of
   documents per year.

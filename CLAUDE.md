@@ -47,7 +47,7 @@ must carry the UI too.
 ## Architecture
 
 Every field beyond the raw text is a **typed field** (`LabelType`, `ScoreType`,
-`GroupType`, `SpanType`, `TemporalType`, `TextType`, `Point2DType`), and
+`SpanType`, `TemporalType`, `TextType`, `Point2DType`), and
 each one is implemented identically across four files. Understanding one type
 end-to-end (e.g. grep for `Point2D`) is the fastest way to understand all of
 them:
@@ -58,12 +58,14 @@ them:
   union (`SpanType`, `Point2DType`) still set `value_types` for the outer
   container check but layer custom structural validation on top rather than
   skipping the base check entirely. `definition_types` (currently only set on
-  `GroupType`) lets a type accept an optional `definitions=` dict at
+  `LabelType`) lets a type accept an optional `definitions=` dict at
   construction — this is a general mechanism on `_PrimaryType`, not a
-  `GroupType`-only special case, even though it's the only one wired up today.
+  `LabelType`-only special case, even though it's the only one wired up today.
+  There is deliberately no separate group/cluster type: clusters and topics are
+  `LabelType` fields (`group=` is just a preset name).
 - **`schema.py`** — one SQLAlchemy ORM table per type. Most types share the
   `(id, document_id, field_name, value)` shape via the `_ScalarField` mixin;
-  `Span` and `GroupDefinition` don't fit that shape and are standalone models.
+  `Span` and `LabelDefinition` don't fit that shape and are standalone models.
   `Document` is the root table (`documents.id`, cast to `str` even though IDs
   may be `int`, so one column type covers the union). DuckDB has no
   `SERIAL`/`IDENTITY`, so autoincrement PKs use an explicit `Sequence` per
@@ -84,8 +86,8 @@ them:
   (`Base.metadata.create_all` runs automatically), defaulting to an in-memory
   DB but accepting any SQLAlchemy URL.
 - **`sourcetext.py`** — `SourceText.__init__` is the single dispatch point.
-  Named presets (`predictions=`, `predictions_confidence=`, `gold_labels=`,
-  `scores=`, `groups=`/`group_definitions=`) are wrapped into their typed-field
+  Named presets (`prediction=`, `confidence=`, `gold_label=`, `score=`,
+  `embedding=`, `group=`/`group_definitions=`) are wrapped into their typed-field
   instance and merged into the same `fields` dict as arbitrary `**fields`
   entries — from there, one loop resolves each field's values and calls the
   matching `db.add_*` function based on `isinstance` checks. There is
@@ -108,20 +110,20 @@ live under `/api`; `npm run dev` proxies `/api` to port 8001, or `$SOURCETEXT_AP
 `GET /api/documents/scatter` (unpaginated `point_2d`/`score` fields plotted as
 `{documentId, x, y, text, group}` — pass `field=<point_2d field>` to plot one
 directly, or `xField=`/`yField=<score fields>` to combine two score fields as axes;
-pass neither to just list the plot view's fields (point_2d, score, label, group);
-optionally add `colorField=<label or group field>` to attach its value per point
+pass neither to just list the plot view's fields (point_2d, score, label);
+optionally add `colorField=<label field>` to attach its value per point
 for client-side coloring), `GET /api/documents/strip` (unpaginated
 `{documentId, x, text, row, color}` per document with a value for the score field
-`xField=`, split by the label/group field `rowField=`, optionally colored by
+`xField=`, split by the label field `rowField=`, optionally colored by
 `colorField=` — the plot view uses it when one axis is categorical), `GET
-/api/documents/crosstab` (`{row, col, count}` per value pair of the label/group
+/api/documents/crosstab` (`{row, col, count}` per value pair of the label
 fields `rowField=`/`colField=`, for the confusion matrix view; its cell's documents
 come from the tabular route with two "in" filters), `GET /api/spans` (the span
 view: span/document counts per label and per span type of the span field `field=`,
 default the first; its documents come from the tabular route with the same
 `filters=` plus the selected type's `typeText`), `GET /api/documents/{id}/spans`
 (one document's spans, for the document pane's badges and highlights),
-`GET /api/documents/fields` (the full field list, for
+`GET /api/documents/fields` (the full field list, with label fields' `definitions`, for
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
 populate that detail pane on selection from a non-tabular view), `GET`/`PUT
@@ -135,7 +137,7 @@ thing persisted; typed fields are rebuilt from Python each run. `sourcetext/note
 `NotesFile` (one per `SourceText`, on `app.state.notes_file`) mirrors the `notes`
 table to a JSONL file (`notes_file=`, or chosen in the UI dialog), rewriting it
 atomically after each note change. Records carry `document_id` and `text_hash`:
-they match by id if the user passed `ids=`, else by text hash (duplicate texts all
+they match by id if the user passed `doc_id=`, else by text hash (duplicate texts all
 get the note). Records matching no document are kept as orphans and written back.
 Notes are never kept only in memory: until a file is set, the note route returns
 409 and the UI disables the notes field, with "Select notes file ..." in its label; a
@@ -167,4 +169,9 @@ field's spans everywhere (table values, `/api/spans` counts, document spans) —
 table value is its per-document type counts (`[{text, label, count}]`).
 
 **Not yet implemented**: rendering all of a document's spans at once, coloured by
-label, and group-definition display in the UI — don't assume they work.
+label — don't assume it works.
+
+**Label definitions** ride along on the field list (`FieldInfo.definitions`, also
+on the scatter route's plot fields), not a separate route. The UI shows them via
+`LabelDefinitionInfo` (`ui/src/components/LabelDefinition.tsx`), an info icon
+placed next to a label value wherever it appears.

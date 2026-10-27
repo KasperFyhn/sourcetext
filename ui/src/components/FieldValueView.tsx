@@ -1,6 +1,7 @@
 import { Badge, Group, Text } from '@mantine/core'
 
 import type { Field, FieldValue, SpanTypeCount } from '../api'
+import { LabelDefinitionInfo } from './LabelDefinition'
 import { SpanBadge } from './SpanBadge'
 
 // How many of a document's span types a span field's value shows, most frequent
@@ -36,6 +37,17 @@ export function FieldValueView({
       </Group>
     )
   }
+  if (field.type === 'label')
+    return (
+      <Badge
+        variant="light"
+        rightSection={
+          <LabelDefinitionInfo definitions={field.definitions} value={value} />
+        }
+      >
+        {value}
+      </Badge>
+    )
   if (field.type === 'point_2d' && Array.isArray(value)) {
     const [x, y] = value as [number, number]
     return (
@@ -45,8 +57,6 @@ export function FieldValueView({
     )
   }
   if (Array.isArray(value)) return <Text c="dimmed">–</Text>
-  if (field.type === 'label' || field.type === 'group')
-    return <Badge variant="light">{value}</Badge>
   if (typeof value === 'number' && !Number.isInteger(value))
     return <Text>{value.toFixed(3)}</Text>
   return <Text truncate>{value}</Text>

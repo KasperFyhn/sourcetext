@@ -5,7 +5,6 @@ import pandas as pd
 import pytest
 
 from sourcetext.types import (
-    GroupType,
     LabelType,
     Point2DType,
     ScoreType,
@@ -34,14 +33,19 @@ def test_score_type_resolves():
     assert ScoreType([0.1, 0.9]).resolve() == [0.1, 0.9]
 
 
-def test_group_type_with_dict_definitions():
-    g = GroupType([1, 2, 1], definitions={1: "topic one", 2: "topic two"})
-    assert g.resolve() == [1, 2, 1]
-    assert g.definitions == {1: "topic one", 2: "topic two"}
+def test_label_type_with_dict_definitions():
+    field = LabelType([1, 2, 1], definitions={1: "topic one", 2: "topic two"})
+    assert field.resolve() == [1, 2, 1]
+    assert field.definitions == {1: "topic one", 2: "topic two"}
 
 
-def test_group_type_without_definitions_resolves_secondary_to_none():
-    assert GroupType([1, 2]).definitions is None
+def test_label_type_without_definitions_resolves_secondary_to_none():
+    assert LabelType([1, 2]).definitions is None
+
+
+def test_types_without_definition_types_reject_definitions():
+    with pytest.raises(TypeError):
+        ScoreType([0.1], definitions={0.1: "low"})
 
 
 def test_span_type_resolves_and_allows_empty_spans():
@@ -104,10 +108,10 @@ def test_text_type_resolves():
     assert TextType(["a note"]).resolve() == ["a note"]
 
 
-def test_group_type_definitions_can_be_rich_json_objects():
+def test_label_type_definitions_can_be_rich_json_objects():
     definition = {"label": "Nature", "keywords": ["tree", "forest"]}
-    g = GroupType([0], definitions={0: definition})
-    assert g.definitions == {0: definition}
+    field = LabelType([0], definitions={0: definition})
+    assert field.definitions == {0: definition}
 
 
 def test_point2d_type_resolves_tuples_and_lists():
@@ -166,8 +170,8 @@ def test_score_type_accepts_numpy_array():
     assert all(type(v) is float for v in values)
 
 
-def test_group_type_accepts_numpy_ints_and_definitions():
-    field = GroupType(np.array([0, 1]), definitions={np.int64(0): "zero"})
+def test_label_type_accepts_numpy_ints_and_definitions():
+    field = LabelType(np.array([0, 1]), definitions={np.int64(0): "zero"})
     assert field.resolve() == [0, 1]
     assert field.definitions == {0: "zero"}
 

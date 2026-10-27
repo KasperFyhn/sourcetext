@@ -20,6 +20,7 @@ import type {
 } from '../api'
 import { DocumentView } from './DocumentView'
 import { FieldFilters } from './FieldFilters'
+import type { LabelDefinitions } from './LabelDefinition'
 import { ScatterPlot } from './ScatterPlot'
 import { StripPlot } from './StripPlot'
 import type { StripOrientation } from './StripPlot'
@@ -28,27 +29,35 @@ type Mode = 'point2d' | 'fields'
 
 // What gets drawn: a scatterplot (point_2d field, or two score axes), or a strip
 // plot (one score axis, one categorical axis — a beeswarm per category, so
-// documents sharing a category don't stack on a line). Axis labels and orientation
-// are captured with the request, so they always match the points shown.
+// documents sharing a category don't stack on a line). Axis labels, orientation and
+// label definitions are captured with the request, so they always match the points
+// shown.
 type PlotData =
-  | { kind: 'scatter'; points: ScatterPoint[]; xLabel: string; yLabel: string }
+  | {
+      kind: 'scatter'
+      points: ScatterPoint[]
+      xLabel: string
+      yLabel: string
+      colorDefinitions: LabelDefinitions
+    }
   | {
       kind: 'strip'
       points: StripPoint[]
       orientation: StripOrientation
       scoreLabel: string
       categoryLabel: string
+      categoryDefinitions: LabelDefinitions
+      colorDefinitions: LabelDefinitions
     }
 
 // Field names created by SourceText's classification presets: if present, they make
 // the most useful defaults for a strip plot (confidence per gold label, colored by
 // prediction).
-const PRESET_SCORE = 'predictions_confidence'
-const PRESET_CATEGORIES = ['gold_labels', 'predictions']
-const PRESET_COLOR = 'predictions'
+const PRESET_SCORE = 'confidence'
+const PRESET_CATEGORIES = ['gold_label', 'prediction']
+const PRESET_COLOR = ['group', 'prediction']
 
-const isCategorical = (field: Field | undefined) =>
-  field?.type === 'label' || field?.type === 'group'
+const isCategorical = (field: Field | undefined) => field?.type === 'label'
 
 function pickDefault(names: string[], preferred: string[]): string | null {
   return preferred.find((name) => names.includes(name)) ?? names[0] ?? null
@@ -83,21 +92,23 @@ export function PlotView() {
           result.fields.filter((f) => type.includes(f.type)).map((f) => f.name)
         const point2d = names(['point_2d'])
         const scores = names(['score'])
-        const categories = names(['label', 'group'])
+        const categories = names(['label'])
 
-        if (point2d.length > 0) setPointField(point2d[0])
-        if (scores.length >= 2) {
+        if (point2d.length > 0) {
+          setPointField(point2d[0])
+          setMode('point2d')
+        } else if (scores.length >= 2) {
           setXField(scores[0])
           setYField(scores[1])
+          setMode('fields')
         } else if (scores.length === 1 && categories.length > 0) {
           const category = pickDefault(categories, PRESET_CATEGORIES)
           setXField(pickDefault(scores, [PRESET_SCORE]))
           setYField(category)
-          if (category !== PRESET_COLOR && categories.includes(PRESET_COLOR)) {
-            setColorField(PRESET_COLOR)
-          }
+          setMode('fields')
+          categories.splice(categories.indexOf(category!), 1)
         }
-        setMode(point2d.length > 0 ? 'point2d' : 'fields')
+        setColorField(pickDefault(categories, PRESET_COLOR))
       })
       .catch((err: Error) => setError(err.message))
   }, [])
@@ -111,6 +122,9 @@ export function PlotView() {
   useEffect(() => {
     let stale = false
     const color = colorField ? { colorField } : {}
+    const definitionsOf = (name: string | null) =>
+      plotFields.find((f) => f.name === name)?.definitions
+    const colorDefinitions = definitionsOf(colorField)
     const filtersQuery = filters.length > 0 ? { filters } : {}
     let request: Promise<PlotData> | null = null
     if (mode === 'point2d' && pointField) {
@@ -123,6 +137,7 @@ export function PlotView() {
         points: r.points,
         xLabel: 'x',
         yLabel: 'y',
+        colorDefinitions,
       }))
     } else if (mode === 'fields' && xField && yField) {
       if (!xCategorical && !yCategorical) {
@@ -136,6 +151,7 @@ export function PlotView() {
           points: r.points,
           xLabel: xField,
           yLabel: yField,
+          colorDefinitions,
         }))
       } else if (xCategorical !== yCategorical) {
         const [scoreField, categoryField] = xCategorical
@@ -153,6 +169,8 @@ export function PlotView() {
           orientation: yCategorical ? 'horizontal' : 'vertical',
           scoreLabel: scoreField,
           categoryLabel: categoryField,
+          categoryDefinitions: definitionsOf(categoryField),
+          colorDefinitions,
         }))
       }
     }
@@ -173,6 +191,7 @@ export function PlotView() {
     yCategorical,
     colorField,
     filters,
+    plotFields,
   ])
 
   const handleSelect = (documentId: string) => {
@@ -208,7 +227,7 @@ export function PlotView() {
           {!hasPlottableFields && (
             <Text c="dimmed">
               Nothing to plot: needs a point_2d field, or a score field plus
-              another score, label or group field.
+              another score or label field.
             </Text>
           )}
           {hasPlottableFields && (
@@ -281,6 +300,7 @@ export function PlotView() {
                   points={data.points}
                   xLabel={data.xLabel}
                   yLabel={data.yLabel}
+                  colorDefinitions={data.colorDefinitions}
                   selectedId={selected?.id ?? null}
                   onSelect={handleSelect}
                 />
@@ -291,6 +311,8 @@ export function PlotView() {
                   orientation={data.orientation}
                   scoreLabel={data.scoreLabel}
                   categoryLabel={data.categoryLabel}
+                  categoryDefinitions={data.categoryDefinitions}
+                  colorDefinitions={data.colorDefinitions}
                   selectedId={selected?.id ?? null}
                   onSelect={handleSelect}
                 />

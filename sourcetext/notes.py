@@ -8,7 +8,7 @@ user's data on each run. The file holds one JSON record per note:
 
 Each record stores both the document's id and a hash of its text, so that notes can be
 matched back to documents even when ids aren't stable: by id when the user passed
-`ids=`, otherwise by text (see `NotesFile.load`).
+`doc_id=`, otherwise by text (see `NotesFile.load`).
 """
 
 from __future__ import annotations

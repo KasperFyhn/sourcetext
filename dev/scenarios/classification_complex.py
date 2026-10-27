@@ -12,11 +12,11 @@ def make_source_text(n: int = 120, seed: int = 0) -> SourceText:
     """
     data = generate(n, seed)
     return SourceText(
-        texts=data.texts,
-        predictions=data.predicted,
-        predictions_confidence=data.confidence,
-        gold_labels=data.gold,
-        groups=data.topics,
+        text=data.texts,
+        prediction=data.predicted,
+        confidence=data.confidence,
+        gold_label=data.gold,
+        group=data.topics,
         group_definitions={topic: f"Sentences about {topic}." for topic in TOPICS},
         published=TemporalType(data.dates),
     )

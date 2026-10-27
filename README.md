@@ -30,7 +30,7 @@ texts = [
 ]
 predictions = ["negative", "positive", "negative"]
 
-st = SourceText(texts, predictions=predictions)
+st = SourceText(texts, prediction=predictions)
 st.start_server()  # then open http://localhost:8001
 ```
 
@@ -44,14 +44,14 @@ the background, so you can keep working and call `st.stop_server()` when done.
 ## What you get
 
 - **Table view.** Every document with its fields as columns. Sort by any column,
-  and filter by label, group, score range, date range or spans (their label,
-  score and text).
+  and filter by label, score range, date range or spans (their label, score and
+  text).
 - **Plot view.** Plot documents by a 2D embedding projection (e.g. UMAP), or put
-  any two fields on the axes, optionally coloured by a label or group. Two scores
+  any two fields on the axes, optionally coloured by a label. Two scores
   give a scatter plot, useful for spotting where a model's confidence and a second
-  measure disagree. A score against a label or group gives a strip plot: one row
+  measure disagree. A score against a label gives a strip plot: one row
   (or column) per category, with every document as its own dot.
-- **Confusion matrix view.** Cross two labels or groups (e.g. gold labels and
+- **Confusion matrix view.** Cross two label fields (e.g. gold labels and
   predictions) and click a cell to list its documents, which you can then filter
   further by their other fields.
 - **Span view.** Find documents by their span annotations (e.g. NER output).
@@ -77,9 +77,9 @@ outputs = classify(texts)
 
 st = SourceText(
     texts,
-    predictions=[o["label"] for o in outputs],
-    predictions_confidence=[o["score"] for o in outputs],
-    gold_labels=gold_labels,
+    prediction=[o["label"] for o in outputs],
+    confidence=[o["score"] for o in outputs],
+    gold_label=gold_labels,
 )
 st.start_server()
 ```
@@ -102,7 +102,7 @@ keywords = {t: ", ".join(w for w, _ in topic_model.get_topic(t)) for t in set(to
 
 st = SourceText(
     texts,
-    groups=topics,
+    group=topics,
     group_definitions=keywords,
     topic_probability=ScoreType(probs),
 )
@@ -118,7 +118,7 @@ documents.
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 from umap import UMAP
-from sourcetext import SourceText, Point2DType
+from sourcetext import SourceText
 
 embeddings = SentenceTransformer("all-MiniLM-L6-v2").encode(texts)
 clusters = KMeans(n_clusters=8).fit_predict(embeddings)
@@ -126,13 +126,13 @@ xy = UMAP().fit_transform(embeddings)
 
 st = SourceText(
     texts,
-    groups=clusters,
-    embedding=Point2DType(xy),
+    group=clusters,
+    embedding=xy,
 )
 st.start_server()
 ```
 
-In the plot view, pick `embedding` and colour by `groups` to see which clusters
+In the plot view, pick `embedding` and colour by `group` to see which clusters
 the projection keeps together, then click through the points where it doesn't.
 
 ### Named entities
@@ -163,10 +163,10 @@ from sourcetext import SourceText, TemporalType, TextType
 # df has columns: id, text, title, year, prediction, gold
 st = SourceText(
     data=df,
-    texts="text",
-    ids="id",
-    predictions="prediction",
-    gold_labels="gold",
+    text="text",
+    doc_id="id",
+    prediction="prediction",
+    gold_label="gold",
     title=TextType("title"),
     year=TemporalType("year"),
 )
@@ -180,7 +180,6 @@ and some parts are not built yet:
 
 - **Spans** (`SpanType`, e.g. NER output) are listed, filtered and highlighted on
   click, but not yet shown all at once in the text, coloured by label.
-- **Group definitions** are accepted and stored, but not yet shown in the app.
 
 See the [roadmap](https://github.com/KasperFyhn/sourcetext/blob/main/ROADMAP.md) for
 what's planned next.
@@ -196,22 +195,23 @@ Feedback and issues are very welcome at
 
 ```python
 SourceText(
-    texts,
+    text,
     *,
     data=None,
-    ids=None,
-    predictions=None,
-    predictions_confidence=None,
-    gold_labels=None,
-    scores=None,
-    groups=None,
+    doc_id=None,
+    prediction=None,
+    confidence=None,
+    gold_label=None,
+    score=None,
+    embedding=None,
+    group=None,
     group_definitions=None,
     notes_file=None,
     **fields,
 )
 ```
 
-`texts` is the only required argument. Everything else attaches a **field** to the
+`text` is the only required argument. Everything else attaches a **field** to the
 documents: one value per document, shown as a column in the table and as a row in
 the document pane.
 
@@ -223,10 +223,10 @@ of a column** in that DataFrame. Pick one mode per call:
 
 ```python
 # Lists
-SourceText(texts, predictions=preds)
+SourceText(texts, prediction=preds)
 
 # DataFrame columns
-SourceText(data=df, texts="text", predictions="pred")
+SourceText(data=df, text="text", prediction="pred")
 ```
 
 Missing values can be given as `None`, and pandas' `NaN`/`NaT`/`pd.NA` are treated
@@ -235,21 +235,22 @@ dates) are converted to their plain Python equivalents.
 
 ### Document IDs
 
-By default documents are numbered `0, 1, 2, …`. Pass `ids=` (ints or strings) to
+By default documents are numbered `0, 1, 2, …`. Pass `doc_id=` (ints or strings) to
 use your own, e.g. to match document IDs elsewhere in your pipeline.
 
 ### Named fields
 
 These cover the common cases, and need no wrapping:
 
-| Argument                 | Field type  | For                                             |
-|--------------------------|-------------|-------------------------------------------------|
-| `predictions`            | `LabelType` | a classifier's predicted labels                 |
-| `predictions_confidence` | `ScoreType` | the classifier's confidence in each prediction  |
-| `gold_labels`            | `LabelType` | reference / ground-truth labels                 |
-| `scores`                 | `ScoreType` | any single numeric score, e.g. sentiment        |
-| `groups`                 | `GroupType` | cluster or topic assignments                    |
-| `group_definitions`      | —           | descriptions of each group (see below)          |
+| Argument            | Field type    | For                                            |
+|---------------------|---------------|------------------------------------------------|
+| `prediction`        | `LabelType`   | a classifier's predicted labels                |
+| `confidence`        | `ScoreType`   | the classifier's confidence in each prediction |
+| `gold_label`        | `LabelType`   | reference / ground-truth labels                |
+| `score`             | `ScoreType`   | any single numeric score, e.g. sentiment       |
+| `embedding`         | `Point2DType` | a 2D projection of document embeddings         |
+| `group`             | `LabelType`   | cluster or topic assignments                   |
+| `group_definitions` | —             | what each group means (see below)              |
 
 ### Custom fields
 
@@ -269,15 +270,14 @@ SourceText(
 
 ## Field types
 
-| Type           | Values                                               | In the app                                                    | Typical use                        |
-|----------------|------------------------------------------------------|---------------------------------------------------------------|------------------------------------|
-| `TextType`     | `str`                                                | shown as text                                                 | titles, authors, source metadata   |
-| `LabelType`    | `str`, `int`, `bool`                                 | badge; filter by value; plot axis or colour; confusion matrix | classifier output, gold labels     |
-| `ScoreType`    | `float`, `int`                                       | filter by range; plot axis                                    | confidence, sentiment, any metric  |
-| `GroupType`    | `str`, `int`                                         | badge; filter by value; plot axis or colour; confusion matrix | clusters, topics                   |
-| `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps       |
-| `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections |
-| `SpanType`     | list of `{"start", "end"}` dicts, see below          | badges; filter by label, score, text; span view               | named entities, marked passages    |
+| Type           | Values                                               | In the app                                                    | Typical use                            |
+|----------------|------------------------------------------------------|---------------------------------------------------------------|----------------------------------------|
+| `TextType`     | `str`                                                | shown as text                                                 | titles, authors, source metadata       |
+| `LabelType`    | `str`, `int`, `bool`                                 | badge; filter by value; plot axis or colour; confusion matrix | classes, gold labels, clusters, topics |
+| `ScoreType`    | `float`, `int`                                       | filter by range; plot axis                                    | confidence, sentiment, any metric      |
+| `TemporalType` | `int` (a year), `datetime.date`, `datetime.datetime` | filter by range                                               | publication year, timestamps           |
+| `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections     |
+| `SpanType`     | list of `{"start", "end"}` dicts, see below          | badges; filter by label, score, text; span view               | named entities, marked passages        |
 
 All columns in the table view are sortable, except 2D points and spans.
 
@@ -296,20 +296,31 @@ Notes on specific types:
 - **`Point2DType`**: to plot two separate scores against each other instead, just
   pass them as two `ScoreType` fields and pick both as axes in the plot view.
 
-### Group definitions
+### Label definitions
 
-`GroupType` accepts a `definitions=` dict mapping each group ID to a description.
-That can be a plain string, or any JSON-serializable object (e.g. keywords with
-weights). `group_definitions=` is shorthand for attaching one to `groups=`:
+`LabelType` accepts a `definitions=` dict mapping each value to what it means: a
+codebook entry for an annotation category, or a topic's keywords. That can be a
+plain string, or any JSON-serializable object (e.g. keywords with weights).
+`group_definitions=` is shorthand for attaching one to `group=`:
 
 ```python
 # These are equivalent:
-SourceText(texts, groups=topics, group_definitions=keywords)
-SourceText(texts, groups=GroupType(topics, definitions=keywords))
+SourceText(texts, group=topics, group_definitions=keywords)
+SourceText(texts, group=LabelType(topics, definitions=keywords))
 
-# Custom group fields take definitions= directly:
-SourceText(texts, era=GroupType(eras, definitions={"early": "before 1850", "late": "1850 and after"}))
+# Other label fields take definitions= directly, e.g. a codebook:
+SourceText(
+    texts,
+    gold_label=LabelType(gold, definitions={"irony": "Says the opposite of what is meant"}),
+    era=LabelType(eras, definitions={"early": "before 1850", "late": "1850 and after"}),
+)
 ```
+
+In the app, a value with a definition is marked with an ⓘ wherever it appears
+(badges, filter options, plot legends and axes, confusion matrix headers): hover
+the ⓘ to see the definition.
+Keyword lists, as `[word, weight]` pairs or a `{word: weight}` dict, are shown as
+a table of words and weights.
 
 ## Notes
 
@@ -317,7 +328,7 @@ Notes you write in the app are saved to a JSONL file. Pass its path as
 `notes_file=` to load the notes in it when the `SourceText` is created:
 
 ```python
-st = SourceText(texts, predictions=preds, notes_file="notes.jsonl")
+st = SourceText(texts, prediction=preds, notes_file="notes.jsonl")
 ```
 
 The file doesn't need to exist yet; it is created when the first note is written.
@@ -345,9 +356,9 @@ Read it back into pandas with `pd.read_json("notes.jsonl", lines=True)`.
 
 Notes are matched back to documents like this:
 
-- **With `ids=`**: by document ID. You're warned if a document's text has changed
+- **With `doc_id=`**: by document ID. You're warned if a document's text has changed
   since its note was written.
-- **Without `ids=`**: by the text itself (`text_hash`), since the default IDs are
+- **Without `doc_id=`**: by the text itself (`text_hash`), since the default IDs are
   just row positions and change when the data is reordered or filtered. If several
   documents have exactly the same text, the note is shown on all of them.
 

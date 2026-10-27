@@ -19,9 +19,8 @@ from sqlalchemy.orm import Session
 
 from sourcetext.db.schema import (
     Document,
-    Group,
-    GroupDefinition,
     Label,
+    LabelDefinition,
     Note,
     Score,
     TemporalDate,
@@ -104,12 +103,6 @@ def add_scores(session: Session, field_name: str, document_ids: Sequence, values
     return _add_scalar_field(session, Score.__tablename__, field_name, document_ids, values, cast=float)
 
 
-def add_groups(session: Session, field_name: str, document_ids: Sequence, values: Sequence) -> int:
-    """Insert one `Group` row per `(document_id, value)` pair under `field_name`.
-    `value` is the group id, stored as text so it lines up with GroupDefinition.group_id."""
-    return _add_scalar_field(session, Group.__tablename__, field_name, document_ids, values, cast=str)
-
-
 def add_text(session: Session, field_name: str, document_ids: Sequence, values: Sequence) -> int:
     """Insert one `Text` row per `(document_id, value)` pair under `field_name`."""
     return _add_scalar_field(session, Text.__tablename__, field_name, document_ids, values)
@@ -133,12 +126,12 @@ def add_temporal_datetimes(session: Session, field_name: str, document_ids: Sequ
     return _add_scalar_field(session, TemporalDatetime.__tablename__, field_name, document_ids, values)
 
 
-def add_group_definitions(session: Session, field_name: str, definitions: dict) -> list[GroupDefinition]:
-    """Insert one `GroupDefinition` row per `(group_id, definition)` pair, keyed by
-    which GroupType field (`field_name`) they belong to."""
+def add_label_definitions(session: Session, field_name: str, definitions: dict) -> list[LabelDefinition]:
+    """Insert one `LabelDefinition` row per `(value, definition)` pair, keyed by
+    which LabelType field (`field_name`) they belong to."""
     rows = [
-        GroupDefinition(field_name=field_name, group_id=str(group_id), definition=definition)
-        for group_id, definition in definitions.items()
+        LabelDefinition(field_name=field_name, value=str(value), definition=definition)
+        for value, definition in definitions.items()
     ]
     session.add_all(rows)
     return rows

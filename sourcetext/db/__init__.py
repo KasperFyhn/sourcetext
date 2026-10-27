@@ -1,8 +1,7 @@
 from sourcetext.db.engine import get_sessionmaker
 from sourcetext.db.population import (
     add_documents,
-    add_group_definitions,
-    add_groups,
+    add_label_definitions,
     add_labels,
     add_points_2d,
     add_scores,
@@ -72,8 +71,7 @@ __all__ = [
     "get_sessionmaker",
     "add_documents",
     "add_text",
-    "add_group_definitions",
-    "add_groups",
+    "add_label_definitions",
     "add_labels",
     "add_points_2d",
     "add_scores",
