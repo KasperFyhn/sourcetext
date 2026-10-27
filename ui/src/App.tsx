@@ -2,7 +2,7 @@ import { ActionIcon, Box, Flex, Stack, Tooltip } from '@mantine/core'
 import {
   IconChartScatter,
   IconGrid3x3,
-  IconHighlight,
+  IconTextColor,
   IconTable,
 } from '@tabler/icons-react'
 import { useState } from 'react'
@@ -62,7 +62,7 @@ function App() {
               aria-label="Span view"
               onClick={() => setView('spans')}
             >
-              <IconHighlight size={20} />
+              <IconTextColor size={20} />
             </ActionIcon>
           </Tooltip>
         </Stack>
