@@ -10,13 +10,6 @@ welcome at
 These features are accepted by the Python API today but don't do everything they
 should yet.
 
-- **Get notes back into Python.** Today notes can be read back from their JSONL
-  file (`pd.read_json(path, lines=True)`), but not from the `SourceText`. Add a way
-  to return them to your analysis, e.g. `st.notes` as a DataFrame of
-  `(document_id, note)`, or `st.to_dataframe()` with notes as a column.
-- **Render spans.** Spans are highlighted one type at a time, by clicking its
-  badge. Show every span in the text at once, coloured by label, with their scores
-  on hover.
 - **Temporal fields on the plot.** `TemporalType` fields can only be filtered by
   today. Allow them as a plot axis, e.g. a score over time or a strip plot of
   documents per year.
@@ -50,3 +43,13 @@ judgments about them.
   takes about 15 s and the table, span view and document pane respond in under
   0.4 s. The plot routes still return every document at once: check how they
   scale, and sample or aggregate where needed.
+
+## Internal
+
+Changes to the code that users won't see directly.
+
+- **One filter type per op.** Split `FieldFilter` into `InFilter`, `RangeFilter`
+  and `SpanFilter` (next to `SearchFilter`), each with only its own fields, as a
+  union on `op` in Python, the request models and TypeScript. Checks like "an `in`
+  filter needs `values`" then move from `_apply_filters` into the request models.
+  The UI's `SpanFilter` component needs a new name.
