@@ -167,6 +167,13 @@ field's spans everywhere (table values, `/api/spans` counts, document spans) —
 `_span_conditions`/`_active_span_conditions` in `db/queries.py`. A span field's
 table value is its per-document type counts (`[{text, label, count}]`).
 
+**Search**: the one `"contains"` filter (`{field?, op: "contains", text}`) searches a
+`TextType` field, the source text (`field: "text"`, unambiguous since `text` is
+`SourceText.__init__`'s own parameter), or both the source text and every text field
+(no `field`); see `_text_search_subquery` in `db/queries.py`. The UI shows it as one
+search box with a dropdown for what to search (`SearchFilter` in `FieldFilters.tsx`),
+not a control per text field.
+
 **Not yet implemented**: rendering all of a document's spans at once, coloured by
 label — don't assume it works.
 

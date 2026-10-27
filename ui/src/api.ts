@@ -27,8 +27,12 @@ export type FilterOp = 'in' | 'range' | 'contains' | 'span'
 // `min`/`max`, `text` in its span text or norm text, and exactly `typeText` as its
 // type text. It also prunes that field's spans everywhere else: counts, badges and
 // highlights only include the spans it matches.
+//
+// A "contains" filter searches the text field `field` for `text` (ignoring case);
+// `field: 'text'` searches the source text, and no `field` searches the source
+// text and every text field.
 export interface FieldFilter {
-  field: string
+  field?: string
   op: FilterOp
   values?: (string | null)[]
   min?: number | string

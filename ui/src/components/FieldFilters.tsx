@@ -3,6 +3,7 @@ import {
   Chip,
   Group,
   Input,
+  NativeSelect,
   NumberInput,
   Stack,
   Text,
@@ -281,7 +282,7 @@ export function SpanFilter({
 
   useEffect(() => {
     update({ text: debounced || undefined })
-    // Depends only on the debounced value, as in TextFilter: `update` applies
+    // Depends only on the debounced value, as in SearchFilter: `update` applies
     // against the latest filters through the functional-update form.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced, field.name])
@@ -449,47 +450,121 @@ function TemporalDatetimeFilter({ field, current, onChange }: ControlProps) {
   )
 }
 
-function TextFilter({ field, current, onChange }: ControlProps) {
+// The search box's dropdown value for "every text field" (a filter without `field`).
+const ALL_TEXT = '\u0000all'
+
+interface SearchFilterProps {
+  // The TextType fields the dropdown offers besides the source text.
+  textFields: Field[]
+  filters: FieldFilter[]
+  onChange: Dispatch<SetStateAction<FieldFilter[]>>
+}
+
+// One search box for the source text ("text", the default) or the TextType field
+// picked in its dropdown, or all of them at once. It's the only "contains" filter.
+function SearchFilter({ textFields, filters, onChange }: SearchFilterProps) {
+  const current = filters.find((f) => f.op === 'contains')
   const [text, setText] = useState(current?.text ?? '')
+  const [target, setTarget] = useState(
+    current ? (current.field ?? ALL_TEXT) : 'text',
+  )
   const [debounced] = useDebouncedValue(text, 300)
 
   useEffect(() => {
-    onChange((prev) =>
-      setFieldFilter(
-        prev,
-        field.name,
-        debounced
-          ? { field: field.name, op: 'contains', text: debounced }
-          : null,
-      ),
-    )
-    // Intentionally depends only on the debounced value (and the field it belongs
-    // to) — `onChange` uses React's functional-update form, so it always applies
-    // against the latest filters regardless of what else changed in between.
+    onChange((prev) => {
+      const rest = prev.filter((f) => f.op !== 'contains')
+      // Same array if nothing changes, so mounting doesn't trigger a refetch.
+      if (!debounced) return rest.length === prev.length ? prev : rest
+      const search: FieldFilter = { op: 'contains', text: debounced }
+      if (target !== ALL_TEXT) search.field = target
+      return [...rest, search]
+    })
+    // Depends only on the debounced value and the target, as in SpanFilter:
+    // `onChange` applies against the latest filters through the functional form.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debounced, field.name])
+  }, [debounced, target])
 
-  return (
+  const options = [
+    { value: 'text', label: 'text' },
+    ...textFields.map((f) => ({ value: f.name, label: f.name })),
+    { value: ALL_TEXT, label: 'all text' },
+  ]
+  const selectedLabel = options.find((o) => o.value === target)?.label ?? 'text'
+
+  const input = (
     <TextInput
-      label={field.name}
-      placeholder="Contains…"
+      aria-label="Search text"
+      placeholder={'Search...'}
       value={text}
       onChange={(e) => setText(e.currentTarget.value)}
-      w={200}
+      w={170}
+      // Joined to the dropdown: square left corners, sharing its border.
+      styles={
+        textFields.length > 0
+          ? {
+              input: {
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                marginLeft: -1,
+              },
+            }
+          : undefined
+      }
     />
+  )
+
+  return (
+    <Input.Wrapper label="search">
+      {textFields.length > 0 ? (
+        <Group gap={0} wrap="nowrap">
+          <NativeSelect
+            aria-label="Search in"
+            value={target}
+            onChange={(e) => setTarget(e.currentTarget.value)}
+            data={options}
+            // The full name on hover, since a long one is cut off.
+            title={selectedLabel}
+            rightSectionWidth={24}
+            styles={{
+              input: {
+                width: 'auto',
+                maxWidth: 100,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                paddingRight: 20,
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+                backgroundColor: 'var(--mantine-color-default-hover)',
+              },
+            }}
+          />
+          {input}
+        </Group>
+      ) : (
+        input
+      )}
+    </Input.Wrapper>
   )
 }
 
 // Shared between TabularView and ScatterView: purely controlled by `filters` +
 // `onChange`, so each view can keep its own independent filter state while reusing
 // the same per-type controls. point_2d fields have no single filterable value (same
-// reasoning as them being unsortable), so they're skipped.
+// reasoning as them being unsortable), so they're skipped; text fields are searched
+// through the one SearchFilter rather than a control each.
 export function FieldFilters({ fields, filters, onChange }: Props) {
-  const filterable = fields.filter((f) => f.type !== 'point_2d')
-  if (filterable.length === 0) return null
+  const filterable = fields.filter(
+    (f) => f.type !== 'point_2d' && f.type !== 'text',
+  )
 
   return (
     <Group align="flex-start" gap="lg">
+      <SearchFilter
+        textFields={fields.filter((f) => f.type === 'text')}
+        filters={filters}
+        onChange={onChange}
+      />
       {filterable.map((field) => {
         const current = filters.find((f) => f.field === field.name)
         if (field.type === 'label')
@@ -546,14 +621,7 @@ export function FieldFilters({ fields, filters, onChange }: Props) {
               onChange={onChange}
             />
           )
-        return (
-          <TextFilter
-            key={field.name}
-            field={field}
-            current={current}
-            onChange={onChange}
-          />
-        )
+        return null
       })}
     </Group>
   )

@@ -13,7 +13,7 @@ class FieldOut(CamelModel):
 
 
 class FieldFilterIn(CamelModel):
-    field: str
+    field: str | None = None
     op: Literal["in", "range", "contains", "span"]
     values: list[str | None] | None = None
     min: float | str | None = None

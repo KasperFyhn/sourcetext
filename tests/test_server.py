@@ -157,6 +157,42 @@ def test_tabular_route_filters_by_text_contains(tmp_path):
     assert {d["id"] for d in body["documents"]} == {"doc0", "doc2"}
 
 
+def _search_ids(client, filters) -> set[str]:
+    response = client.get("/api/documents/tabular", params={"filters": json.dumps(filters)})
+    assert response.status_code == 200
+    return {d["id"] for d in response.json()["documents"]}
+
+
+def test_contains_filter_on_text_searches_source_text_only(tmp_path):
+    client = _client_with_filter_fields(tmp_path)
+
+    assert _search_ids(client, [{"field": "text", "op": "contains", "text": "IR"}]) == {"doc0", "doc2"}
+    # "good" is only in a text field, not in any source text.
+    assert _search_ids(client, [{"field": "text", "op": "contains", "text": "good"}]) == set()
+
+
+def test_contains_filter_without_field_searches_source_text_and_text_fields(tmp_path):
+    client = _client_with_filter_fields(tmp_path)
+
+    assert _search_ids(client, [{"op": "contains", "text": "GOOD"}]) == {"doc1"}
+    assert _search_ids(client, [{"op": "contains", "text": "third"}]) == {"doc2"}
+
+
+def test_contains_filter_treats_wildcards_literally(tmp_path):
+    client = _client_with_filter_fields(tmp_path)
+
+    assert _search_ids(client, [{"op": "contains", "text": "%"}]) == set()
+    assert _search_ids(client, [{"field": "editor_note", "op": "contains", "text": "_"}]) == set()
+
+
+def test_filters_other_than_contains_require_a_field(tmp_path):
+    response = _client(tmp_path).get(
+        "/api/documents/tabular", params={"filters": json.dumps([{"op": "in", "values": ["a"]}])}
+    )
+
+    assert response.status_code == 400
+
+
 def test_tabular_route_filters_by_temporal_year_range(tmp_path):
     body = (
         _client_with_filter_fields(tmp_path)

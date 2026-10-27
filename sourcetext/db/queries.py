@@ -65,7 +65,9 @@ class FieldInfo:
 
 @dataclass
 class FieldFilter:
-    field: str
+    # The field filtered on. For "contains" only: "text" is the document's source
+    # text, and None searches the source text and every text field.
+    field: str | None
     op: Literal["in", "range", "contains", "span"]
     # Allowed values ("in"), or span labels ("span"; None stands for unlabelled).
     values: list[str | None] | None = None
@@ -322,6 +324,20 @@ def _span_types(session: Session, field_name: str, document_ids, conditions: lis
     return out
 
 
+def _text_search_subquery(f: FieldFilter):
+    """The ids of documents whose source text (`f.field == "text"`), or source text
+    or any text field value (`f.field is None`), contains `f.text`, ignoring case."""
+    if not f.text:
+        raise ValueError("A 'contains' filter requires non-empty `text`.")
+    query = f.text.lower()
+    condition = func.lower(Document.text).contains(query, autoescape=True)
+    if f.field is None:
+        in_text_fields = select(Text.document_id).where(func.lower(Text.value).contains(query, autoescape=True))
+        condition = or_(condition, Document.id.in_(in_text_fields))
+    # Never correlated: the outer query may select from `documents` too.
+    return select(Document.id).where(condition).correlate(None).scalar_subquery()
+
+
 def _apply_filters(session: Session, stmt, filters: list[FieldFilter] | None, id_column=Document.id):
     """Narrow `stmt` (any select with `id_column`, by default `Document.id`, in its
     FROM clause) to documents
@@ -330,11 +346,18 @@ def _apply_filters(session: Session, stmt, filters: list[FieldFilter] | None, id
     field `field` meeting its conditions (see `_span_conditions`). Each filter is
     applied as `<id_column> IN (<field's matching ids>)`, which composes safely
     regardless of `stmt`'s existing joins/columns (and doesn't duplicate documents
-    with many matching spans). Raises ValueError for an unknown field, an op that
+    with many matching spans). A "contains" filter searches its text field, or the
+    source text if `field` is "text", or both the source text and every text field
+    if `field` is None (see `_text_search_subquery`). Raises ValueError for an unknown field, an op that
     doesn't fit the field's type (e.g. "in" on a score field, or "span" on anything
     but a span field), or a bound that fails to coerce (e.g. a non-ISO date
     string)."""
     for f in filters or []:
+        if f.op == "contains" and f.field in (None, "text"):
+            stmt = stmt.where(id_column.in_(_text_search_subquery(f)))
+            continue
+        if f.field is None:
+            raise ValueError(f"A {f.op!r} filter requires a `field`.")
         if f.op == "span":
             stmt = stmt.where(id_column.in_(_span_filter_subquery(session, f)))
             continue
@@ -363,7 +386,7 @@ def _apply_filters(session: Session, stmt, filters: list[FieldFilter] | None, id
                 raise ValueError(f"{f.field!r} does not support a 'contains' filter.")
             if not f.text:
                 raise ValueError("A 'contains' filter requires non-empty `text`.")
-            sub = sub.where(func.lower(table.value).like(f"%{f.text.lower()}%"))
+            sub = sub.where(func.lower(table.value).contains(f.text.lower(), autoescape=True))
         else:
             raise ValueError(f"Unknown filter op {f.op!r}.")
         stmt = stmt.where(id_column.in_(sub.correlate(None).scalar_subquery()))

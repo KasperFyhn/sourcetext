@@ -26,8 +26,6 @@ should yet.
 These features help with the main job: reading documents closely and recording
 judgments about them.
 
-- **Full-text search.** Filter documents by a substring of the source text itself.
-  Today the "contains" filter only works on `TextType` fields.
 - **Filter by notes.** Show only documents that have a note, or that have none,
   and search inside notes.
 - **Structured judgments.** Alongside free-text notes, let the user mark a
