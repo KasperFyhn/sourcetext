@@ -44,7 +44,7 @@ the background, so you can keep working and call `st.stop_server()` when done.
 
 The app has:
 
-- **Table view**: sort, search and filter documents by any field.
+- **Tabular view**: sort, search and filter documents by any field.
 - **Plot view**: embeddings, or any two fields against each other.
 - **Confusion matrix view**: cross two label fields, click a cell to read its documents.
 - **Span view**: find documents by their span annotations (e.g. NER).

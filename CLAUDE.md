@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Use the words in `VOCABULARY.md` in code, docs and the UI:
+
+@VOCABULARY.md
+
 ## What this is
 
 A Python library for DH/NLP researchers to review model output (classification,
@@ -50,7 +54,12 @@ must carry the UI too.
 
 ## Architecture
 
-Every field beyond the raw text is a **typed field** (`LabelType`, `ScoreType`,
+Where code goes and how it's split follows the project skills
+`.claude/skills/backend-organization/` (for `sourcetext/`, `tests/`) and
+`.claude/skills/frontend-organization/` (for `ui/src/`). Some of the current code predates
+them; the paths below describe the code as it is now.
+
+Every field beyond the raw text has a **field type** (`LabelType`, `ScoreType`,
 `SpanType`, `TemporalType`, `TextType`, `Point2DType`), and
 each one is implemented identically across four files. Understanding one type
 end-to-end (e.g. grep for `Point2D`) is the fastest way to understand all of
@@ -66,7 +75,7 @@ them:
   construction — this is a general mechanism on `_PrimaryType`, not a
   `LabelType`-only special case, even though it's the only one wired up today.
   There is deliberately no separate group/cluster type: clusters and topics are
-  `LabelType` fields (`group=` is just a preset name).
+  `LabelType` fields (`group=` is just a named field).
 - **`schema.py`** — one SQLAlchemy ORM table per type. Most types share the
   `(id, document_id, field_name, value)` shape via the `_ScalarField` mixin;
   `Span` and `LabelDefinition` don't fit that shape and are standalone models.
@@ -89,16 +98,16 @@ them:
   (`Base.metadata.create_all` runs automatically), defaulting to an in-memory
   DB but accepting any SQLAlchemy URL.
 - **`sourcetext.py`** — `SourceText.__init__` is the single dispatch point.
-  Named presets (`prediction=`, `confidence=`, `gold_label=`, `score=`,
-  `embedding=`, `group=`/`group_definitions=`) are wrapped into their typed-field
+  Named fields (`prediction=`, `confidence=`, `gold_label=`, `score=`,
+  `embedding=`, `group=`/`group_definitions=`) are wrapped into their field-type
   instance and merged into the same `fields` dict as arbitrary `**fields`
   entries — from there, one loop resolves each field's values and calls the
   matching `db.add_*` function based on `isinstance` checks. There is
   intentionally **one dispatch path**, not a separate "simple" vs. "expert"
-  code path — adding a new preset kwarg means wrapping it before the loop, not
+  code path — adding a new named field means wrapping it before the loop, not
   branching inside it.
 
-**Adding a new primary type** touches all four files plus the README: a class
+**Adding a new field type** touches all four files plus the README: a class
 in `types.py`, a table in `schema.py`, an `add_*` function in `db.py`, a
 dispatch branch in `sourcetext.py`'s loop, an export in `sourcetext/__init__.py`,
 and a row in the field types tables in both `docs/api.md` and the README.
@@ -136,7 +145,7 @@ saves through these rather than reading `note` off the document payloads), and `
 are saved).
 
 **Notes persistence**: notes are the only user-created data, so they're the only
-thing persisted; typed fields are rebuilt from Python each run. `sourcetext/notes.py`'s
+thing persisted; fields are rebuilt from Python each run. `sourcetext/notes.py`'s
 `NotesFile` (one per `SourceText`, on `app.state.notes_file`) mirrors the `notes`
 table to a JSONL file (`notes_file=`, or chosen in the UI dialog), rewriting it
 atomically after each note change. Records carry `document_id` and `text_hash`:
@@ -161,10 +170,8 @@ UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
-**Spans**: a span has `start`/`end` and nullable `label`, `score`, `norm_text`. Its
-*span text* is what it covers; its *type text* is `norm_text ?? span text`; a *span
-type* is (field, type text, label), shown as a badge, and its spans (tokens) are
-what gets highlighted. A `"span"` filter (`{field, op: "span", values?: labels
+**Spans** (terms in `VOCABULARY.md`): a span has `start`/`end` and nullable `label`,
+`score`, `norm_text`. A `"span"` filter (`{field, op: "span", values?: labels
 (null: unlabelled), min?/max?: score, text?: contains in span or norm text,
 typeText?: exact}`) matches documents with a matching span *and* prunes that
 field's spans everywhere (table values, `/api/spans` counts, document spans) — see
