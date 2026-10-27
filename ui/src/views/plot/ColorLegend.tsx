@@ -1,7 +1,7 @@
 import { Flex, Paper, Stack, Text } from '@mantine/core'
 
-import { LabelDefinitionInfo } from '../../fields/label/LabelDefinition'
-import type { LabelDefinitions } from '../../fields/label/LabelDefinition'
+import { LabelDefinitionInfo } from '../../fields/label/LabelDefinitionInfo'
+import type { LabelDefinitions } from '../../fields/label/labelDefinitions'
 import type { ColorScale } from '../../lib/colors'
 
 // The plot views' color key, overlaid in the top-right corner. Entries whose label

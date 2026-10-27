@@ -5,11 +5,9 @@ import { scaleLinear } from '@visx/scale'
 import { useMemo, useState } from 'react'
 
 import type { StripPoint } from '../../api/plot'
-import {
-  definitionOf,
-  LabelDefinitionInfo,
-} from '../../fields/label/LabelDefinition'
-import type { LabelDefinitions } from '../../fields/label/LabelDefinition'
+import { LabelDefinitionInfo } from '../../fields/label/LabelDefinitionInfo'
+import { definitionOf } from '../../fields/label/labelDefinitions'
+import type { LabelDefinitions } from '../../fields/label/labelDefinitions'
 import { buildColorScale, NO_VALUE_LABEL } from '../../lib/colors'
 import { categoryKeys, computeDomain } from '../../lib/plotting'
 import { ColorLegend } from './ColorLegend'

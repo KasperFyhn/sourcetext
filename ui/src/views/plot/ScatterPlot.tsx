@@ -6,7 +6,7 @@ import { scaleLinear } from '@visx/scale'
 import { useMemo, useRef, useState } from 'react'
 
 import type { ScatterPoint } from '../../api/plot'
-import type { LabelDefinitions } from '../../fields/label/LabelDefinition'
+import type { LabelDefinitions } from '../../fields/label/labelDefinitions'
 import { buildColorScale } from '../../lib/colors'
 import { ColorLegend } from './ColorLegend'
 

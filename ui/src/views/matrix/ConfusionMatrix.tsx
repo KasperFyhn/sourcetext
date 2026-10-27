@@ -2,8 +2,8 @@ import { Table, Text } from '@mantine/core'
 import { useMemo } from 'react'
 
 import type { CrosstabCell } from '../../api/matrix'
-import { LabelDefinitionInfo } from '../../fields/label/LabelDefinition'
-import type { LabelDefinitions } from '../../fields/label/LabelDefinition'
+import { LabelDefinitionInfo } from '../../fields/label/LabelDefinitionInfo'
+import type { LabelDefinitions } from '../../fields/label/labelDefinitions'
 import { NO_VALUE_LABEL } from '../../lib/colors'
 import { categoryKeys } from '../../lib/plotting'
 
