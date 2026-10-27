@@ -37,6 +37,16 @@ export function FieldValueView({
       </Group>
     )
   }
+
+  if (field.type === 'point_2d' && Array.isArray(value)) {
+    const [x, y] = value as [number, number]
+    return (
+      <Text>
+        ({x.toFixed(2)}, {y.toFixed(2)})
+      </Text>
+    )
+  }
+  if (Array.isArray(value)) return <Text c="dimmed">–</Text>
   if (field.type === 'label')
     return (
       <Badge
@@ -48,15 +58,6 @@ export function FieldValueView({
         {value}
       </Badge>
     )
-  if (field.type === 'point_2d' && Array.isArray(value)) {
-    const [x, y] = value as [number, number]
-    return (
-      <Text>
-        ({x.toFixed(2)}, {y.toFixed(2)})
-      </Text>
-    )
-  }
-  if (Array.isArray(value)) return <Text c="dimmed">–</Text>
   if (typeof value === 'number' && !Number.isInteger(value))
     return <Text>{value.toFixed(3)}</Text>
   return <Text truncate>{value}</Text>
