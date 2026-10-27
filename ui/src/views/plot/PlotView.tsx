@@ -17,6 +17,12 @@ import type { Document, Field, Filter } from '../../api/types'
 import { DocumentView } from '../../document/DocumentView'
 import { FieldFilters } from '../../fields/FieldFilters'
 import type { LabelDefinitions } from '../../fields/label/labelDefinitions'
+import {
+  CONFIDENCE,
+  GOLD_LABEL,
+  GROUP,
+  PREDICTION,
+} from '../../lib/namedFields'
 import { ScatterPlot } from './ScatterPlot'
 import { StripPlot } from './StripPlot'
 import type { StripOrientation } from './StripPlot'
@@ -46,12 +52,11 @@ type PlotData =
       colorDefinitions: LabelDefinitions
     }
 
-// Field names created by SourceText's classification presets: if present, they make
-// the most useful defaults for a strip plot (confidence per gold label, colored by
-// prediction).
-const PRESET_SCORE = 'confidence'
-const PRESET_CATEGORIES = ['gold_label', 'prediction']
-const PRESET_COLOR = ['group', 'prediction']
+// Named fields, if present, make the most useful defaults for a strip plot
+// (confidence per gold label, colored by prediction).
+const DEFAULT_SCORE = CONFIDENCE
+const DEFAULT_CATEGORIES = [GOLD_LABEL, PREDICTION]
+const DEFAULT_COLOR = [GROUP, PREDICTION]
 
 const isCategorical = (field: Field | undefined) => field?.type === 'label'
 
@@ -98,13 +103,13 @@ export function PlotView() {
           setYField(scores[1])
           setMode('fields')
         } else if (scores.length === 1 && categories.length > 0) {
-          const category = pickDefault(categories, PRESET_CATEGORIES)
-          setXField(pickDefault(scores, [PRESET_SCORE]))
+          const category = pickDefault(categories, DEFAULT_CATEGORIES)
+          setXField(pickDefault(scores, [DEFAULT_SCORE]))
           setYField(category)
           setMode('fields')
           categories.splice(categories.indexOf(category!), 1)
         }
-        setColorField(pickDefault(categories, PRESET_COLOR))
+        setColorField(pickDefault(categories, DEFAULT_COLOR))
       })
       .catch((err: Error) => setError(err.message))
   }, [])

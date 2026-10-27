@@ -184,12 +184,12 @@ case. A field is a `TextType` field's name, or `"text"` for the source text
 (unambiguous since `text` is `SourceText.__init__`'s own parameter). It's the one
 filter without a `field`; the request models are a union on `op` (`FilterIn` in
 `server/requests.py`). The UI shows it as one search box with a dropdown for what to
-search (`SearchBox` in `FieldFilters.tsx`), "all" sending every text field.
+search (`ui/src/fields/text/SearchBox.tsx`), "all" sending every text field.
 
 **Not yet implemented**: rendering all of a document's spans at once, coloured by
 label — don't assume it works.
 
 **Label definitions** ride along on the field list (`FieldInfo.definitions`, also
 on the scatter route's plot fields), not a separate route. The UI shows them via
-`LabelDefinitionInfo` (`ui/src/components/LabelDefinition.tsx`), an info icon
+`LabelDefinitionInfo` (`ui/src/fields/label/LabelDefinitionInfo.tsx`), an info icon
 placed next to a label value wherever it appears.

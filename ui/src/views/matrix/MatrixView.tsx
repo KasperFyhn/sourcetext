@@ -22,13 +22,14 @@ import type { Document, Field, Filter, Sort } from '../../api/types'
 import { DocumentTable } from '../../common/DocumentTable'
 import { DocumentView } from '../../document/DocumentView'
 import { FieldFilters } from '../../fields/FieldFilters'
+import { GOLD_LABEL, PREDICTION } from '../../lib/namedFields'
 import { ConfusionMatrix } from './ConfusionMatrix'
 import type { MatrixCell } from './ConfusionMatrix'
 
-// Field names created by SourceText's classification presets: if present, the
-// matrix opens as gold labels (rows) vs. predictions (columns).
-const PRESET_ROW = 'gold_label'
-const PRESET_COL = 'prediction'
+// If both named fields are present, the matrix opens as gold labels (rows) vs.
+// predictions (columns).
+const DEFAULT_ROW = GOLD_LABEL
+const DEFAULT_COL = PREDICTION
 
 export function MatrixView() {
   // The full field list, for the DocumentView detail pane and the field selectors.
@@ -53,9 +54,9 @@ export function MatrixView() {
         const names = result
           .filter((f) => f.type === 'label')
           .map((f) => f.name)
-        if (names.includes(PRESET_ROW) && names.includes(PRESET_COL)) {
-          setRowField(PRESET_ROW)
-          setColField(PRESET_COL)
+        if (names.includes(DEFAULT_ROW) && names.includes(DEFAULT_COL)) {
+          setRowField(DEFAULT_ROW)
+          setColField(DEFAULT_COL)
         } else if (names.length >= 2) {
           setRowField(names[0])
           setColField(names[1])

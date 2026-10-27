@@ -14,16 +14,18 @@ move it in a separate commit (see "Moves" below).
 ui/src/
   main.tsx, App.tsx
   api/          # all server calls, split by resource; shared types in types.ts
-    types.ts  documents.ts  plots.ts  spans.ts  notes.ts
+    types.ts  documents.ts  plot.ts  matrix.ts  spans.ts  notes.ts
   views/        # one folder per view, with its view-only children
     tabular/  plot/  matrix/  spans/
-  document/     # the document pane (DocumentView, DocumentNotes, ...)
-  fields/       # per field type: filter control + value renderer side by side
-    label/  score/  span/  temporal/  text/
-  common/       # components used by several views (ColorLegend, SpanBadge, ...)
+  document/     # the document pane (DocumentView, DocumentDetail, DocumentNotes)
+  fields/       # FieldFilters / FieldValueView dispatch to one folder per field type,
+                # holding its filter control, value display and helpers
+    label/  score/  span/  temporal/  text/  point2d/
+  common/       # components used by several views that aren't one field type's
+                # (DocumentTable, ...)
   hooks/        # data-fetching and state hooks used by more than one place
   contexts/     # React contexts (NotesFileContext, ...)
-  lib/          # pure .ts helpers without JSX (colors, plotting, ...)
+  lib/          # pure .ts helpers without JSX (colors, plotting, numbers, namedFields)
 ```
 
 ## Principles
@@ -37,9 +39,11 @@ ui/src/
    view-only children. Field-type folders mirror the backend's field types, so a type's
    filter control and value display live together.
    *Why:* adding a view or a field type touches one folder, not a flat list.
-3. **Imports go one way:** `views → document / fields / common → hooks / contexts → api / lib`.
+3. **Imports go one way:** `views → document / common → fields → hooks / contexts → api / lib`.
    A view never imports from another view; anything two views need moves down to
-   `common/`, `fields/` or `lib/`.
+   `common/`, `fields/` or `lib/`. `fields/` never imports from `document/` or `common/`.
+   Something used only by one view stays in its folder (e.g. `ColorLegend` in
+   `views/plot/`).
    *Why:* avoids tangles where changing one view breaks another.
 4. **Fetching lives in hooks, not in components.** Only `api/` calls `fetch`; components
    get data from a hook (next to the view if only it uses it, else in `hooks/`) and mostly

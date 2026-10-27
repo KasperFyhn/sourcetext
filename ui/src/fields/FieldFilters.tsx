@@ -17,7 +17,7 @@ interface Props {
   onChange: Dispatch<SetStateAction<Filter[]>>
 }
 
-// Shared between TabularView and ScatterView: purely controlled by `filters` +
+// Shared by the views: purely controlled by `filters` +
 // `onChange`, so each view can keep its own independent filter state while reusing
 // the same per-type controls. point_2d fields have no single filterable value (same
 // reasoning as them being unsortable), so they're skipped; text fields are searched

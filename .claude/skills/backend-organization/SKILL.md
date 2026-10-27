@@ -18,15 +18,15 @@ sourcetext/
     queries/            # read helpers, split by concern
       __init__.py       # re-exports the public API
       filters.py        # filter dataclasses, applying filters, span/search conditions
-      fields.py  documents.py  plots.py  spans.py  notes.py
+      fields.py  documents.py  plot.py  matrix.py  spans.py  notes.py
   server/
     app.py  backgroundserver.py  requests.py
     routes/
-      documents.py  plots.py  spans.py  notes.py
+      documents.py  plot.py  matrix.py  spans.py  notes.py
 tests/
   test_types.py  test_sourcetext.py  test_population.py  test_notes.py
   server/
-    test_documents.py  test_plots.py  test_spans.py  test_notes.py
+    test_documents.py  test_plot.py  test_matrix.py  test_spans.py  test_notes.py
 ```
 
 ## Principles
@@ -35,8 +35,8 @@ tests/
    response; they don't build SQLAlchemy queries. Queries return dataclasses, not ORM
    objects.
    *Why:* query logic can be tested without HTTP, and routes stay thin.
-2. **Query modules split by concern, matching the routes** (`plots.py` serves
-   scatter/strip/crosstab, `spans.py` the span view, and so on). Filtering is shared by
+2. **Query modules split by concern, matching the routes** (`plot.py` serves
+   scatter/strip, `matrix.py` crosstab, `spans.py` the span view, and so on). Filtering is shared by
    all of them, so it gets its own `filters.py`.
    *Why:* one 700-line `queries.py` holding every view is hard to navigate.
 3. **One route module per resource**, matching the UI's `api/` modules. Keep the rule
