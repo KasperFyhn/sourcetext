@@ -19,7 +19,9 @@ export function SpanBadge({ text, label, count, active, onClick }: Props) {
       tt="none"
       maw={260}
       onClick={onClick}
-      style={onClick ? { cursor: 'pointer' } : undefined}
+      // Mantine's Badge sets `cursor: default`; inherit instead, so a badge inside
+      // a clickable row shows that row's pointer.
+      style={{ cursor: onClick ? 'pointer' : 'inherit' }}
       title={label ? `${text} (${label})` : text}
     >
       {text}

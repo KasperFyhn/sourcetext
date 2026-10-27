@@ -54,6 +54,7 @@ export function FieldValueView({
         rightSection={
           <LabelDefinitionInfo definitions={field.definitions} value={value} />
         }
+        style={{ cursor: 'inherit' }}
       >
         {value}
       </Badge>
