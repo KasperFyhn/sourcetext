@@ -5,7 +5,7 @@ import { ParentSize } from '@visx/responsive'
 import { scaleLinear } from '@visx/scale'
 import { useMemo, useRef, useState } from 'react'
 
-import type { ScatterPoint } from '../api'
+import type { ScatterPoint } from '../api/plot'
 import { buildColorScale } from '../colors'
 import { ColorLegend } from './ColorLegend'
 import type { LabelDefinitions } from './LabelDefinition'

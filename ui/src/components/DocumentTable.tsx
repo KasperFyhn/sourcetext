@@ -6,7 +6,7 @@ import {
 } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 
-import type { Document, Field, Sort } from '../api'
+import type { Document, Field, Sort } from '../api/types'
 import { FieldValueView } from './FieldValueView'
 
 interface Props {

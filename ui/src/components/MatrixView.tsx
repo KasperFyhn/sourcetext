@@ -10,20 +10,11 @@ import {
 } from '@mantine/core'
 import { useEffect, useState } from 'react'
 
-import {
-  fetchCrosstab,
-  fetchFields,
-  fetchTabularDocuments,
-  PAGE_SIZE,
-} from '../api'
-import type {
-  CrosstabCell,
-  Document,
-  DocumentsPage,
-  Field,
-  Filter,
-  Sort,
-} from '../api'
+import { fetchFields, fetchTabularDocuments, PAGE_SIZE } from '../api/documents'
+import type { DocumentsPage } from '../api/documents'
+import { fetchCrosstab } from '../api/matrix'
+import type { CrosstabCell } from '../api/matrix'
+import type { Document, Field, Filter, Sort } from '../api/types'
 import { ConfusionMatrix } from './ConfusionMatrix'
 import type { MatrixCell } from './ConfusionMatrix'
 import { DocumentTable } from './DocumentTable'

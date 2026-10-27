@@ -1,7 +1,7 @@
 import { Table, Text } from '@mantine/core'
 import { useMemo } from 'react'
 
-import type { CrosstabCell } from '../api'
+import type { CrosstabCell } from '../api/matrix'
 import { NO_VALUE_LABEL } from '../colors'
 import { categoryKeys } from '../plotting'
 import { LabelDefinitionInfo } from './LabelDefinition'

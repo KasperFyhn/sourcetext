@@ -1,7 +1,7 @@
 import { Group, Text, Textarea, Tooltip, UnstyledButton } from '@mantine/core'
 import { useEffect, useState } from 'react'
 
-import { fetchNote, saveNote } from '../api'
+import { fetchNote, saveNote } from '../api/notes'
 import { useNotesFile } from '../contexts/NotesFileContext'
 
 interface Props {

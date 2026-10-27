@@ -19,7 +19,7 @@ import { IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 
-import type { Field, FieldFilter, Filter, SearchFilter } from '../api'
+import type { Field, FieldFilter, Filter, SearchFilter } from '../api/types'
 import { LabelDefinitionInfo } from './LabelDefinition'
 
 interface Props {

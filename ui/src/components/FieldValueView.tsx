@@ -1,6 +1,6 @@
 import { Badge, Group, Text } from '@mantine/core'
 
-import type { Field, FieldValue, SpanTypeCount } from '../api'
+import type { Field, FieldValue, SpanTypeCount } from '../api/types'
 import { LabelDefinitionInfo } from './LabelDefinition'
 import { SpanBadge } from './SpanBadge'
 

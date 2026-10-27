@@ -10,8 +10,10 @@ import {
 } from '@mantine/core'
 import { useEffect, useState } from 'react'
 
-import { fetchDocument, fetchFields, fetchScatter, fetchStrip } from '../api'
-import type { Document, Field, Filter, ScatterPoint, StripPoint } from '../api'
+import { fetchDocument, fetchFields } from '../api/documents'
+import { fetchScatter, fetchStrip } from '../api/plot'
+import type { ScatterPoint, StripPoint } from '../api/plot'
+import type { Document, Field, Filter } from '../api/types'
 import { DocumentView } from './DocumentView'
 import { FieldFilters } from './FieldFilters'
 import type { LabelDefinitions } from './LabelDefinition'

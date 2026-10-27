@@ -11,22 +11,11 @@ import {
 } from '@mantine/core'
 import { useEffect, useMemo, useState } from 'react'
 
-import {
-  fetchFields,
-  fetchSpanSummary,
-  fetchTabularDocuments,
-  PAGE_SIZE,
-} from '../api'
-import type {
-  Document,
-  DocumentsPage,
-  Field,
-  FieldFilter,
-  Filter,
-  Sort,
-  SpanSummary,
-  SpanTypeSummary,
-} from '../api'
+import { fetchFields, fetchTabularDocuments, PAGE_SIZE } from '../api/documents'
+import type { DocumentsPage } from '../api/documents'
+import { fetchSpanSummary } from '../api/spans'
+import type { SpanSummary, SpanTypeSummary } from '../api/spans'
+import type { Document, Field, FieldFilter, Filter, Sort } from '../api/types'
 import { DocumentTable } from './DocumentTable'
 import { DocumentView } from './DocumentView'
 import { FieldFilters, SpanFilter } from './FieldFilters'
