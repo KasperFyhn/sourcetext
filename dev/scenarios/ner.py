@@ -68,7 +68,7 @@ def make_source_text(n: int = 300, seed: int = 0) -> SourceText:
     rng = random.Random(seed)
     docs = [_fill(rng, rng.choice(_TEMPLATES)) for _ in range(n)]
     return SourceText(
-        texts=[text for text, _ in docs],
+        text=[text for text, _ in docs],
         entities=SpanType([spans for _, spans in docs]),
         genre=LabelType([rng.choice(["letter", "diary", "report"]) for _ in range(n)]),
     )
