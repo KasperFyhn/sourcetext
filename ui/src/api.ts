@@ -20,19 +20,15 @@ export interface Field {
   definitions?: Record<string, unknown> | null
 }
 
-export type FilterOp = 'in' | 'range' | 'contains' | 'span'
+export type FilterOp = 'in' | 'range' | 'span'
 
 // A "span" filter matches documents with at least one span in the span field
 // `field` with a label among `values` (null: unlabelled), a score within
 // `min`/`max`, `text` in its span text or norm text, and exactly `typeText` as its
 // type text. It also prunes that field's spans everywhere else: counts, badges and
 // highlights only include the spans it matches.
-//
-// A "contains" filter searches the text field `field` for `text` (ignoring case);
-// `field: 'text'` searches the source text, and no `field` searches the source
-// text and every text field.
 export interface FieldFilter {
-  field?: string
+  field: string
   op: FilterOp
   values?: (string | null)[]
   min?: number | string
@@ -40,6 +36,16 @@ export interface FieldFilter {
   text?: string
   typeText?: string
 }
+
+// Documents where any of `fields` contains `text` (ignoring case). A field is a
+// text field's name, or 'text' for the source text.
+export interface SearchFilter {
+  op: 'search'
+  text: string
+  fields: string[]
+}
+
+export type Filter = FieldFilter | SearchFilter
 
 // One span type in a document: the spans sharing a type text (norm text, else
 // span text) and label, and how many there are.
@@ -76,7 +82,7 @@ export interface Sort {
 export async function fetchTabularDocuments(
   page: number,
   sort: Sort | null = null,
-  filters: FieldFilter[] = [],
+  filters: Filter[] = [],
 ): Promise<DocumentsPage> {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
@@ -109,7 +115,7 @@ export interface ScatterData {
 
 export type ScatterQuery = (
   { field: string } | { xField: string; yField: string } | Record<string, never>
-) & { colorField?: string; filters?: FieldFilter[] }
+) & { colorField?: string; filters?: Filter[] }
 
 export async function fetchScatter(query: ScatterQuery): Promise<ScatterData> {
   const { filters, ...rest } = query
@@ -143,7 +149,7 @@ export interface StripQuery {
   xField: string
   rowField: string
   colorField?: string
-  filters?: FieldFilter[]
+  filters?: Filter[]
 }
 
 // A strip plot's points: one per document along a score field (`x`), split by a
@@ -229,7 +235,7 @@ export interface SpanSummary {
 // counted (the label counts ignore its labels); other filters, which documents.
 export async function fetchSpanSummary(
   field: string | null,
-  filters: FieldFilter[] = [],
+  filters: Filter[] = [],
 ): Promise<SpanSummary> {
   const params = new URLSearchParams()
   if (field) params.set('field', field)
@@ -255,7 +261,7 @@ export interface Span {
 // filters in `filters` prune their field's spans.
 export async function fetchDocumentSpans(
   documentId: string,
-  filters: FieldFilter[] = [],
+  filters: Filter[] = [],
 ): Promise<Span[]> {
   const params = new URLSearchParams()
   if (filters.length > 0) params.set('filters', JSON.stringify(filters))

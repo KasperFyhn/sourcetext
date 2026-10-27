@@ -144,48 +144,53 @@ def test_tabular_route_filters_by_score_range(tmp_path):
     assert {d["id"] for d in body["documents"]} == {"doc1", "doc2"}
 
 
-def test_tabular_route_filters_by_text_contains(tmp_path):
-    body = (
-        _client_with_filter_fields(tmp_path)
-        .get(
-            "/api/documents/tabular",
-            params={"filters": json.dumps([{"field": "editor_note", "op": "contains", "text": "needs"}])},
-        )
-        .json()
-    )
-
-    assert {d["id"] for d in body["documents"]} == {"doc0", "doc2"}
-
-
 def _search_ids(client, filters) -> set[str]:
     response = client.get("/api/documents/tabular", params={"filters": json.dumps(filters)})
     assert response.status_code == 200
     return {d["id"] for d in response.json()["documents"]}
 
 
-def test_contains_filter_on_text_searches_source_text_only(tmp_path):
+def _search(text: str, *fields: str) -> dict:
+    return {"op": "search", "text": text, "fields": list(fields)}
+
+
+def test_search_filter_on_a_text_field(tmp_path):
     client = _client_with_filter_fields(tmp_path)
 
-    assert _search_ids(client, [{"field": "text", "op": "contains", "text": "IR"}]) == {"doc0", "doc2"}
+    assert _search_ids(client, [_search("needs", "editor_note")]) == {"doc0", "doc2"}
+
+
+def test_search_filter_on_text_searches_source_text_only(tmp_path):
+    client = _client_with_filter_fields(tmp_path)
+
+    assert _search_ids(client, [_search("IR", "text")]) == {"doc0", "doc2"}
     # "good" is only in a text field, not in any source text.
-    assert _search_ids(client, [{"field": "text", "op": "contains", "text": "good"}]) == set()
+    assert _search_ids(client, [_search("good", "text")]) == set()
 
 
-def test_contains_filter_without_field_searches_source_text_and_text_fields(tmp_path):
+def test_search_filter_matches_any_of_its_fields(tmp_path):
     client = _client_with_filter_fields(tmp_path)
 
-    assert _search_ids(client, [{"op": "contains", "text": "GOOD"}]) == {"doc1"}
-    assert _search_ids(client, [{"op": "contains", "text": "third"}]) == {"doc2"}
+    assert _search_ids(client, [_search("GOOD", "text", "editor_note")]) == {"doc1"}
+    assert _search_ids(client, [_search("third", "text", "editor_note")]) == {"doc2"}
 
 
-def test_contains_filter_treats_wildcards_literally(tmp_path):
+def test_search_filter_treats_wildcards_literally(tmp_path):
     client = _client_with_filter_fields(tmp_path)
 
-    assert _search_ids(client, [{"op": "contains", "text": "%"}]) == set()
-    assert _search_ids(client, [{"field": "editor_note", "op": "contains", "text": "_"}]) == set()
+    assert _search_ids(client, [_search("%", "text", "editor_note")]) == set()
+    assert _search_ids(client, [_search("_", "editor_note")]) == set()
 
 
-def test_filters_other_than_contains_require_a_field(tmp_path):
+def test_invalid_search_filters_are_rejected(tmp_path):
+    client = _client_with_filter_fields(tmp_path)
+
+    for search in (_search("x", "pub_year"), _search("x", "missing"), _search("x"), _search("", "text")):
+        response = client.get("/api/documents/tabular", params={"filters": json.dumps([search])})
+        assert response.status_code == 400, search
+
+
+def test_field_filters_require_a_field(tmp_path):
     response = _client(tmp_path).get(
         "/api/documents/tabular", params={"filters": json.dumps([{"op": "in", "values": ["a"]}])}
     )

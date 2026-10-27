@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { fetchDocumentSpans } from '../api'
-import type { Document, Field, FieldFilter, Span } from '../api'
+import type { Document, Field, Filter, Span } from '../api'
 import { DocumentNotes } from './DocumentNotes'
 import { FieldValueView } from './FieldValueView'
 import { SpanBadge } from './SpanBadge'
@@ -20,7 +20,7 @@ interface Props {
   document: Document | null
   // The view's filters: "span" filters among them prune the spans listed and
   // highlighted to the ones they match.
-  filters?: FieldFilter[]
+  filters?: Filter[]
   // A span type to highlight from the start, e.g. the one a view navigated by.
   highlightType?: SpanTypeKey | null
 }
@@ -125,7 +125,7 @@ export function DocumentView({
 interface DetailProps {
   fields: Field[]
   document: Document
-  filters: FieldFilter[]
+  filters: Filter[]
   highlightType: SpanTypeKey | null
 }
 
@@ -146,7 +146,7 @@ function DocumentDetail({
   const spanFilters = JSON.stringify(filters.filter((f) => f.op === 'span'))
   useEffect(() => {
     let stale = false
-    fetchDocumentSpans(document.id, JSON.parse(spanFilters) as FieldFilter[])
+    fetchDocumentSpans(document.id, JSON.parse(spanFilters) as Filter[])
       .then((result) => !stale && setSpans(result))
       .catch(() => !stale && setSpans([]))
     return () => {

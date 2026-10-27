@@ -11,13 +11,7 @@ import {
 import { useEffect, useState } from 'react'
 
 import { fetchDocument, fetchFields, fetchScatter, fetchStrip } from '../api'
-import type {
-  Document,
-  Field,
-  FieldFilter,
-  ScatterPoint,
-  StripPoint,
-} from '../api'
+import type { Document, Field, Filter, ScatterPoint, StripPoint } from '../api'
 import { DocumentView } from './DocumentView'
 import { FieldFilters } from './FieldFilters'
 import type { LabelDefinitions } from './LabelDefinition'
@@ -74,7 +68,7 @@ export function PlotView() {
   const [yField, setYField] = useState<string | null>(null)
   const [colorField, setColorField] = useState<string | null>(null)
   // Independent from the other views' filter state.
-  const [filters, setFilters] = useState<FieldFilter[]>([])
+  const [filters, setFilters] = useState<Filter[]>([])
   const [data, setData] = useState<PlotData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)

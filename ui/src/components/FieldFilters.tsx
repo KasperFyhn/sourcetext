@@ -19,27 +19,37 @@ import { IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 
-import type { Field, FieldFilter } from '../api'
+import type { Field, FieldFilter, Filter, SearchFilter } from '../api'
 import { LabelDefinitionInfo } from './LabelDefinition'
 
 interface Props {
   fields: Field[]
-  filters: FieldFilter[]
-  onChange: Dispatch<SetStateAction<FieldFilter[]>>
+  filters: Filter[]
+  onChange: Dispatch<SetStateAction<Filter[]>>
 }
 
 interface ControlProps {
   field: Field
   current?: FieldFilter
-  onChange: Dispatch<SetStateAction<FieldFilter[]>>
+  onChange: Dispatch<SetStateAction<Filter[]>>
+}
+
+// The filter on the field `fieldName`, if any (never the search filter).
+function findFieldFilter(
+  filters: Filter[],
+  fieldName: string,
+): FieldFilter | undefined {
+  return filters.find(
+    (f): f is FieldFilter => f.op !== 'search' && f.field === fieldName,
+  )
 }
 
 function setFieldFilter(
-  filters: FieldFilter[],
+  filters: Filter[],
   fieldName: string,
   filter: FieldFilter | null,
-): FieldFilter[] {
-  const rest = filters.filter((f) => f.field !== fieldName)
+): Filter[] {
+  const rest = filters.filter((f) => f !== findFieldFilter(filters, fieldName))
   return filter ? [...rest, filter] : rest
 }
 
@@ -265,7 +275,7 @@ export function SpanFilter({
 
   const update = (patch: Partial<FieldFilter>) =>
     onChange((prev) => {
-      const existing = prev.find((f) => f.field === field.name)
+      const existing = findFieldFilter(prev, field.name)
       const next: FieldFilter = {
         ...existing,
         ...patch,
@@ -282,7 +292,7 @@ export function SpanFilter({
 
   useEffect(() => {
     update({ text: debounced || undefined })
-    // Depends only on the debounced value, as in SearchFilter: `update` applies
+    // Depends only on the debounced value, as in SearchBox: `update` applies
     // against the latest filters through the functional-update form.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced, field.name])
@@ -450,34 +460,40 @@ function TemporalDatetimeFilter({ field, current, onChange }: ControlProps) {
   )
 }
 
-// The search box's dropdown value for "every text field" (a filter without `field`).
+// The search box's dropdown value for "every text field".
 const ALL_TEXT = '\u0000all'
 
-interface SearchFilterProps {
+interface SearchBoxProps {
   // The TextType fields the dropdown offers besides the source text.
   textFields: Field[]
-  filters: FieldFilter[]
-  onChange: Dispatch<SetStateAction<FieldFilter[]>>
+  filters: Filter[]
+  onChange: Dispatch<SetStateAction<Filter[]>>
 }
 
 // One search box for the source text ("text", the default) or the TextType field
-// picked in its dropdown, or all of them at once. It's the only "contains" filter.
-function SearchFilter({ textFields, filters, onChange }: SearchFilterProps) {
-  const current = filters.find((f) => f.op === 'contains')
+// picked in its dropdown, or all of them at once. It's the only search filter.
+function SearchBox({ textFields, filters, onChange }: SearchBoxProps) {
+  const current = filters.find((f): f is SearchFilter => f.op === 'search')
   const [text, setText] = useState(current?.text ?? '')
   const [target, setTarget] = useState(
-    current ? (current.field ?? ALL_TEXT) : 'text',
+    !current
+      ? 'text'
+      : current.fields.length > 1
+        ? ALL_TEXT
+        : current.fields[0],
   )
   const [debounced] = useDebouncedValue(text, 300)
 
   useEffect(() => {
     onChange((prev) => {
-      const rest = prev.filter((f) => f.op !== 'contains')
+      const rest = prev.filter((f) => f.op !== 'search')
       // Same array if nothing changes, so mounting doesn't trigger a refetch.
       if (!debounced) return rest.length === prev.length ? prev : rest
-      const search: FieldFilter = { op: 'contains', text: debounced }
-      if (target !== ALL_TEXT) search.field = target
-      return [...rest, search]
+      const fields =
+        target === ALL_TEXT
+          ? ['text', ...textFields.map((f) => f.name)]
+          : [target]
+      return [...rest, { op: 'search', text: debounced, fields }]
     })
     // Depends only on the debounced value and the target, as in SpanFilter:
     // `onChange` applies against the latest filters through the functional form.
@@ -552,7 +568,7 @@ function SearchFilter({ textFields, filters, onChange }: SearchFilterProps) {
 // `onChange`, so each view can keep its own independent filter state while reusing
 // the same per-type controls. point_2d fields have no single filterable value (same
 // reasoning as them being unsortable), so they're skipped; text fields are searched
-// through the one SearchFilter rather than a control each.
+// through the one SearchBox rather than a control each.
 export function FieldFilters({ fields, filters, onChange }: Props) {
   const filterable = fields.filter(
     (f) => f.type !== 'point_2d' && f.type !== 'text',
@@ -560,13 +576,13 @@ export function FieldFilters({ fields, filters, onChange }: Props) {
 
   return (
     <Group align="flex-start" gap="lg">
-      <SearchFilter
+      <SearchBox
         textFields={fields.filter((f) => f.type === 'text')}
         filters={filters}
         onChange={onChange}
       />
       {filterable.map((field) => {
-        const current = filters.find((f) => f.field === field.name)
+        const current = findFieldFilter(filters, field.name)
         if (field.type === 'label')
           return (
             <LabelFilter
