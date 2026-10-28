@@ -1,5 +1,4 @@
 import {
-  Alert,
   Box,
   Flex,
   Group,
@@ -8,120 +7,71 @@ import {
   Stack,
   Text,
 } from '@mantine/core'
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 
-import {
-  fetchFields,
-  fetchTabularDocuments,
-  PAGE_SIZE,
-} from '../../api/documents'
-import type { DocumentsPage } from '../../api/documents'
-import { fetchCrosstab } from '../../api/matrix'
-import type { CrosstabCell } from '../../api/matrix'
-import type { Document, Field, Filter, Sort } from '../../api/types'
+import { PAGE_SIZE } from '../../api/documents'
+import type { Document, Filter } from '../../api/types'
 import { DocumentTable } from '../../common/DocumentTable'
+import { ErrorAlert } from '../../common/ErrorAlert'
 import { DocumentView } from '../../document/DocumentView'
 import { FieldFilters } from '../../fields/FieldFilters'
-import { GOLD_LABEL, PREDICTION } from '../../lib/namedFields'
+import { useDocumentsPage } from '../../hooks/useDocumentsPage'
+import { useFields } from '../../hooks/useFields'
 import { ConfusionMatrix } from './ConfusionMatrix'
 import type { MatrixCell } from './ConfusionMatrix'
-
-// If both named fields are present, the matrix opens as gold labels (rows) vs.
-// predictions (columns).
-const DEFAULT_ROW = GOLD_LABEL
-const DEFAULT_COL = PREDICTION
+import { defaultMatrixFields } from './matrixDefaults'
+import { useCrosstab } from './useCrosstab'
 
 export function MatrixView() {
   // The full field list, for the DocumentView detail pane and the field selectors.
-  const [fields, setFields] = useState<Field[] | null>(null)
-  const [rowField, setRowField] = useState<string | null>(null)
-  const [colField, setColField] = useState<string | null>(null)
-  const [cells, setCells] = useState<CrosstabCell[] | null>(null)
+  const { fields, error: fieldsError } = useFields()
+  // The fields picked in the selectors; until then, the defaults.
+  const [rowChoice, setRowChoice] = useState<string | null>(null)
+  const [colChoice, setColChoice] = useState<string | null>(null)
+  const defaults = useMemo(
+    () => (fields ? defaultMatrixFields(fields) : null),
+    [fields],
+  )
+  const rowField = rowChoice ?? defaults?.row ?? null
+  const colField = colChoice ?? defaults?.col ?? null
+  const { cells, error: cellsError } = useCrosstab(rowField, colField)
   const [cell, setCell] = useState<MatrixCell | null>(null)
-  const [page, setPage] = useState(1)
-  const [sort, setSort] = useState<Sort | null>(null)
   // Filters on the table's columns. They narrow only the listed documents, not the
   // matrix counts, and carry over when another cell is selected.
   const [filters, setFilters] = useState<Filter[]>([])
-  const [documents, setDocuments] = useState<DocumentsPage | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [selected, setSelected] = useState<Document | null>(null)
-
-  useEffect(() => {
-    fetchFields()
-      .then((result) => {
-        setFields(result)
-        const names = result
-          .filter((f) => f.type === 'label')
-          .map((f) => f.name)
-        if (names.includes(DEFAULT_ROW) && names.includes(DEFAULT_COL)) {
-          setRowField(DEFAULT_ROW)
-          setColField(DEFAULT_COL)
-        } else if (names.length >= 2) {
-          setRowField(names[0])
-          setColField(names[1])
-        }
-      })
-      .catch((err: Error) => setError(err.message))
-  }, [])
-
-  useEffect(() => {
-    if (!rowField || !colField) return
-    let stale = false
-    fetchCrosstab(rowField, colField)
-      .then((result) => !stale && setCells(result))
-      .catch((err: Error) => !stale && setError(err.message))
-    return () => {
-      stale = true
-    }
-  }, [rowField, colField])
 
   // The documents in the selected cell: the tabular route, pre-filtered to that
   // cell's two values on top of the table's own filters.
-  useEffect(() => {
-    if (!rowField || !colField || !cell) return
-    let stale = false
-    fetchTabularDocuments(page, sort, [
-      ...filters,
-      { field: rowField, op: 'in', values: [cell.row] },
-      { field: colField, op: 'in', values: [cell.col] },
-    ])
-      .then((result) => !stale && setDocuments(result))
-      .catch((err: Error) => !stale && setError(err.message))
-    return () => {
-      stale = true
-    }
-  }, [rowField, colField, cell, page, sort, filters])
+  const documentFilters = useMemo(
+    (): Filter[] | null =>
+      rowField && colField && cell
+        ? [
+            ...filters,
+            { field: rowField, op: 'in', values: [cell.row] },
+            { field: colField, op: 'in', values: [cell.col] },
+          ]
+        : null,
+    [rowField, colField, cell, filters],
+  )
+  const {
+    data: documents,
+    error: documentsError,
+    page,
+    setPage,
+    sort,
+    toggleSort,
+  } = useDocumentsPage(documentFilters)
+  const error = fieldsError ?? cellsError ?? documentsError
+  const [selected, setSelected] = useState<Document | null>(null)
 
   // Changing either field invalidates the selected cell, and the table filters
   // (which may target the newly chosen field).
   const changeField =
     (setter: (value: string | null) => void) => (value: string | null) => {
       setter(value)
-      setCells(null)
       setCell(null)
-      setDocuments(null)
       setFilters([])
     }
-
-  const handleFiltersChange: typeof setFilters = (value) => {
-    setFilters(value)
-    setPage(1)
-  }
-
-  const handleCellSelect = (next: MatrixCell) => {
-    setCell(next)
-    setPage(1)
-  }
-
-  const handleSort = (field: string) => {
-    setSort((current) => {
-      if (current?.field !== field) return { field, dir: 'asc' }
-      if (current.dir === 'asc') return { field, dir: 'desc' }
-      return null
-    })
-    setPage(1)
-  }
 
   if (!fields) return null
 
@@ -143,11 +93,7 @@ export function MatrixView() {
     <Flex h="100%">
       <Box flex={2} p="md" style={{ overflow: 'auto' }}>
         <Stack>
-          {error && (
-            <Alert color="red" title="Something went wrong">
-              {error}
-            </Alert>
-          )}
+          <ErrorAlert error={error} />
           {categoryFields.length < 2 && (
             <Text c="dimmed">
               A confusion matrix needs two label fields, e.g. predictions and
@@ -161,14 +107,14 @@ export function MatrixView() {
                   label="Rows"
                   data={categoryFields}
                   value={rowField}
-                  onChange={changeField(setRowField)}
+                  onChange={changeField(setRowChoice)}
                   allowDeselect={false}
                 />
                 <Select
                   label="Columns"
                   data={categoryFields}
                   value={colField}
-                  onChange={changeField(setColField)}
+                  onChange={changeField(setColChoice)}
                   allowDeselect={false}
                 />
               </Group>
@@ -180,7 +126,7 @@ export function MatrixView() {
                   colDefinitions={definitionsOf(colField)}
                   cells={cells}
                   selected={cell}
-                  onSelect={handleCellSelect}
+                  onSelect={setCell}
                 />
               )}
               {!cell && (
@@ -193,7 +139,7 @@ export function MatrixView() {
                   <FieldFilters
                     fields={tableFields}
                     filters={filters}
-                    onChange={handleFiltersChange}
+                    onChange={setFilters}
                   />
                   <Text size="sm">
                     {filters.length > 0
@@ -208,7 +154,7 @@ export function MatrixView() {
                     selectedId={selected?.id ?? null}
                     onSelect={setSelected}
                     sort={sort}
-                    onSort={handleSort}
+                    onSort={toggleSort}
                   />
                   {documents.total > PAGE_SIZE && (
                     <Pagination

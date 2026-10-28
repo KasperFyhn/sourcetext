@@ -1,48 +1,19 @@
-import { Alert, Box, Flex, Loader, Pagination, Stack } from '@mantine/core'
-import { useEffect, useState } from 'react'
+import { Box, Flex, Loader, Pagination, Stack } from '@mantine/core'
+import { useState } from 'react'
 
-import { fetchTabularDocuments, PAGE_SIZE } from '../../api/documents'
-import type { DocumentsPage } from '../../api/documents'
-import type { Document, Filter, Sort } from '../../api/types'
+import { PAGE_SIZE } from '../../api/documents'
+import type { Document, Filter } from '../../api/types'
 import { DocumentTable } from '../../common/DocumentTable'
+import { ErrorAlert } from '../../common/ErrorAlert'
 import { DocumentView } from '../../document/DocumentView'
 import { FieldFilters } from '../../fields/FieldFilters'
+import { useDocumentsPage } from '../../hooks/useDocumentsPage'
 
 export function TabularView() {
-  const [page, setPage] = useState(1)
-  const [sort, setSort] = useState<Sort | null>(null)
   const [filters, setFilters] = useState<Filter[]>([])
-  const [data, setData] = useState<DocumentsPage | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data, error, page, setPage, sort, toggleSort } =
+    useDocumentsPage(filters)
   const [selected, setSelected] = useState<Document | null>(null)
-
-  useEffect(() => {
-    let stale = false
-    fetchTabularDocuments(page, sort, filters)
-      .then((result) => {
-        if (stale) return
-        setData(result)
-        setError(null)
-      })
-      .catch((err: Error) => !stale && setError(err.message))
-    return () => {
-      stale = true
-    }
-  }, [page, sort, filters])
-
-  const handleSort = (field: string) => {
-    setSort((current) => {
-      if (current?.field !== field) return { field, dir: 'asc' }
-      if (current.dir === 'asc') return { field, dir: 'desc' }
-      return null
-    })
-    setPage(1)
-  }
-
-  const handleFiltersChange: typeof setFilters = (value) => {
-    setFilters(value)
-    setPage(1)
-  }
 
   const fields = data?.fields ?? []
 
@@ -50,18 +21,14 @@ export function TabularView() {
     <Flex h="100%">
       <Box flex={2} p="md" style={{ overflow: 'auto' }}>
         <Stack>
-          {error && (
-            <Alert color="red" title="Something went wrong">
-              {error}
-            </Alert>
-          )}
+          <ErrorAlert error={error} />
           {!error && !data && <Loader />}
           {data && (
             <>
               <FieldFilters
                 fields={fields}
                 filters={filters}
-                onChange={handleFiltersChange}
+                onChange={setFilters}
               />
               <DocumentTable
                 fields={fields}
@@ -69,7 +36,7 @@ export function TabularView() {
                 selectedId={selected?.id ?? null}
                 onSelect={setSelected}
                 sort={sort}
-                onSort={handleSort}
+                onSort={toggleSort}
               />
               <Pagination
                 value={page}

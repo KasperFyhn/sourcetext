@@ -1,74 +1,38 @@
-import {
-  Alert,
-  Box,
-  Flex,
-  Pagination,
-  Select,
-  Stack,
-  Text,
-} from '@mantine/core'
-import { useEffect, useMemo, useState } from 'react'
+import { Box, Flex, Pagination, Select, Stack, Text } from '@mantine/core'
+import { useMemo, useState } from 'react'
 
-import {
-  fetchFields,
-  fetchTabularDocuments,
-  PAGE_SIZE,
-} from '../../api/documents'
-import type { DocumentsPage } from '../../api/documents'
-import { fetchSpanSummary } from '../../api/spans'
-import type { SpanSummary, SpanTypeSummary } from '../../api/spans'
-import type {
-  Document,
-  Field,
-  FieldFilter,
-  Filter,
-  Sort,
-} from '../../api/types'
+import { PAGE_SIZE } from '../../api/documents'
+import type { SpanTypeSummary } from '../../api/spans'
+import type { Document, FieldFilter, Filter } from '../../api/types'
 import { DocumentTable } from '../../common/DocumentTable'
+import { ErrorAlert } from '../../common/ErrorAlert'
 import { DocumentView } from '../../document/DocumentView'
 import { FieldFilters } from '../../fields/FieldFilters'
 import { SpanBadge } from '../../fields/span/SpanBadge'
 import { SpanFilter } from '../../fields/span/SpanFilter'
+import { useDocumentsPage } from '../../hooks/useDocumentsPage'
+import { useFields } from '../../hooks/useFields'
 import { SpanTypeTable } from './SpanTypeTable'
+import { useSpanSummary } from './useSpanSummary'
 
 // Find documents by their spans: narrow a span field's spans by label, score and
 // text, then pick a span type to list the documents containing it, with its spans
 // highlighted in the document.
 export function SpanView() {
   // The full field list, for the DocumentView detail pane and the filters.
-  const [fields, setFields] = useState<Field[] | null>(null)
-  const [spanField, setSpanField] = useState<string | null>(null)
-  // Every filter, including the span filter on `spanField` (labels, score, search),
-  // which prunes the spans counted, listed and highlighted.
+  const { fields, error: fieldsError } = useFields()
+  // The span field picked in the selector; until then, the summary's default.
+  const [spanFieldChoice, setSpanFieldChoice] = useState<string | null>(null)
+  // Every filter, including the span filter on the span field (labels, score,
+  // search), which prunes the spans counted, listed and highlighted.
   const [filters, setFilters] = useState<Filter[]>([])
   const [selectedType, setSelectedType] = useState<SpanTypeSummary | null>(null)
-  const [summary, setSummary] = useState<SpanSummary | null>(null)
-  const [page, setPage] = useState(1)
-  const [sort, setSort] = useState<Sort | null>(null)
-  const [documents, setDocuments] = useState<DocumentsPage | null>(null)
+  const { summary, error: summaryError } = useSpanSummary(
+    spanFieldChoice,
+    filters,
+  )
+  const spanField = spanFieldChoice ?? summary?.field ?? null
   const [selected, setSelected] = useState<Document | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetchFields()
-      .then(setFields)
-      .catch((err: Error) => setError(err.message))
-  }, [])
-
-  useEffect(() => {
-    let stale = false
-    fetchSpanSummary(spanField, filters)
-      .then((result) => {
-        if (stale) return
-        setSummary(result)
-        if (result.field !== spanField) setSpanField(result.field)
-        setError(null)
-      })
-      .catch((err: Error) => !stale && setError(err.message))
-    return () => {
-      stale = true
-    }
-  }, [spanField, filters])
 
   const spanFilter = filters.find(
     (f): f is FieldFilter => f.op === 'span' && f.field === spanField,
@@ -76,6 +40,7 @@ export function SpanView() {
 
   // The documents with a matching span: the span filter (always present, so only
   // documents with a span in the field are listed), narrowed to the selected type.
+  // Any change here goes back to the first page.
   const documentFilters = useMemo(() => {
     if (!spanField) return null
     const base: FieldFilter = spanFilter ?? { field: spanField, op: 'span' }
@@ -84,53 +49,35 @@ export function SpanView() {
       : base
     return [...filters.filter((f) => f !== spanFilter), narrowed]
   }, [filters, spanField, spanFilter, selectedType])
-
-  useEffect(() => {
-    if (!documentFilters) return
-    let stale = false
-    fetchTabularDocuments(page, sort, documentFilters)
-      .then((result) => !stale && setDocuments(result))
-      .catch((err: Error) => !stale && setError(err.message))
-    return () => {
-      stale = true
-    }
-  }, [documentFilters, page, sort])
+  const {
+    data: documents,
+    error: documentsError,
+    page,
+    setPage,
+    sort,
+    toggleSort,
+  } = useDocumentsPage(documentFilters)
+  const error = fieldsError ?? summaryError ?? documentsError
 
   const handleFieldChange = (value: string | null) => {
-    setSpanField(value)
+    setSpanFieldChoice(value)
     setSelectedType(null)
-    setPage(1)
   }
 
   // Any filter change may drop the selected type's spans, so it's deselected.
   const handleFiltersChange: typeof setFilters = (value) => {
     setFilters(value)
     setSelectedType(null)
-    setPage(1)
   }
 
   const handleTypeSelect = (type: SpanTypeSummary) => {
     const same =
       selectedType?.text === type.text && selectedType.label === type.label
     setSelectedType(same ? null : type)
-    setPage(1)
-  }
-
-  const handleSort = (field: string) => {
-    setSort((current) => {
-      if (current?.field !== field) return { field, dir: 'asc' }
-      if (current.dir === 'asc') return { field, dir: 'desc' }
-      return null
-    })
-    setPage(1)
   }
 
   if (!fields || !summary) {
-    return error ? (
-      <Alert color="red" title="Something went wrong" m="md">
-        {error}
-      </Alert>
-    ) : null
+    return <ErrorAlert error={error} m="md" />
   }
 
   const field = fields.find((f) => f.name === spanField)
@@ -140,11 +87,7 @@ export function SpanView() {
     <Flex h="100%">
       <Box flex={2} p="md" style={{ overflow: 'auto' }}>
         <Stack>
-          {error && (
-            <Alert color="red" title="Something went wrong">
-              {error}
-            </Alert>
-          )}
+          <ErrorAlert error={error} />
           {!field && (
             <Text c="dimmed">
               No span fields. Pass a SpanType field (e.g. NER output) to find
@@ -205,7 +148,7 @@ export function SpanView() {
                     selectedId={selected?.id ?? null}
                     onSelect={setSelected}
                     sort={sort}
-                    onSort={handleSort}
+                    onSort={toggleSort}
                   />
                   {documents.total > PAGE_SIZE && (
                     <Pagination

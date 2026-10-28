@@ -139,9 +139,9 @@ default the first; its documents come from the tabular route with the same
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
 populate that detail pane on selection from a non-tabular view), `GET`/`PUT
-/api/documents/{id}/note` (notes live in the `notes` table, which is not a typed
-field; an empty note deletes the row; the UI's `DocumentNotes` component loads and
-saves through these rather than reading `note` off the document payloads), and `GET`/`PUT /api/notes/file` (where notes
+/api/documents/{id}/note` (notes live in the `notes` table, which is not a
+field; an empty note deletes the row; the UI's `useNote` hook (`ui/src/document/`) loads
+and saves through these rather than reading `note` off the document payloads), and `GET`/`PUT /api/notes/file` (where notes
 are saved).
 
 **Notes persistence**: notes are the only user-created data, so they're the only
@@ -161,6 +161,11 @@ tmp working directory so a stray default notes file doesn't leak in. Read helper
 DuckDB is per-thread, so FastAPI's threadpool would see an empty DB. The
 `{document_id}`-taking routes are registered after the static `tabular`/`scatter`/
 `strip`/`crosstab`/`fields` routes so FastAPI matches those literal paths first.
+
+**UI data loading**: components don't fetch; hooks do, built on `useFetch`
+(`ui/src/hooks/useFetch.ts`: drops superseded responses, optionally keeps the previous
+data while loading). Shared hooks (`useFields`, `useDocumentsPage`) are in `hooks/`,
+view-only ones next to their view.
 
 **Dev workflow**: mock data lives outside the package in `dev/` (one module per
 scenario in `dev/scenarios/`, each exposing `make_source_text()`). Run
