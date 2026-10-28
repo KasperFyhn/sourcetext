@@ -159,8 +159,10 @@ reruns pick notes up again. Conflicting notes (switching files mid-session) are 
 (`MERGE_SEPARATOR`), never dropped. `tests/conftest.py` runs each test in its own
 tmp working directory so a stray default notes file doesn't leak in. Read helpers are in `db/queries/` (one module per view, filtering in `filters.py`). Routes must be `async def`: in-memory
 DuckDB is per-thread, so FastAPI's threadpool would see an empty DB. The
-`{document_id}`-taking routes are registered after the static `tabular`/`scatter`/
-`strip`/`crosstab`/`fields` routes so FastAPI matches those literal paths first.
+Routes are split by resource in `server/routes/` (`documents`, `plot`, `matrix`, `spans`,
+`notes`, matching `ui/src/api/`). `GET /api/documents/{document_id}` is registered after the
+static `tabular`/`scatter`/`strip`/`crosstab`/`fields` routes (`app.py` includes the
+documents router last) so FastAPI matches those literal paths first.
 
 **UI data loading**: components don't fetch; hooks do, built on `useFetch`
 (`ui/src/hooks/useFetch.ts`: drops superseded responses, optionally keeps the previous
