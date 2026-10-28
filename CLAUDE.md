@@ -157,7 +157,7 @@ note that can't be written to the file is rolled back. Without `notes_file=`,
 `./sourcetext_notes.jsonl` is used if it exists (it's the dialog's default), so
 reruns pick notes up again. Conflicting notes (switching files mid-session) are concatenated
 (`MERGE_SEPARATOR`), never dropped. `tests/conftest.py` runs each test in its own
-tmp working directory so a stray default notes file doesn't leak in. Read helpers are in `db/queries.py`. Routes must be `async def`: in-memory
+tmp working directory so a stray default notes file doesn't leak in. Read helpers are in `db/queries/` (one module per view, filtering in `filters.py`). Routes must be `async def`: in-memory
 DuckDB is per-thread, so FastAPI's threadpool would see an empty DB. The
 `{document_id}`-taking routes are registered after the static `tabular`/`scatter`/
 `strip`/`crosstab`/`fields` routes so FastAPI matches those literal paths first.
@@ -180,11 +180,11 @@ the built UI (API only); `dev.sh` uses it.
 (null: unlabelled), min?/max?: score, text?: contains in span or norm text,
 typeText?: exact}`) matches documents with a matching span *and* prunes that
 field's spans everywhere (table values, `/api/spans` counts, document spans) — see
-`_span_conditions`/`_active_span_conditions` in `db/queries.py`. A span field's
+`span_conditions`/`active_span_conditions` in `db/queries/filters.py`. A span field's
 table value is its per-document type counts (`[{text, label, count}]`).
 
 **Search**: the search filter (`{op: "search", text, fields}`, `SearchFilter` in
-`db/queries.py`) matches documents where any of `fields` contains `text`, ignoring
+`db/queries/filters.py`) matches documents where any of `fields` contains `text`, ignoring
 case. A field is a `TextType` field's name, or `"text"` for the source text
 (unambiguous since `text` is `SourceText.__init__`'s own parameter). It's the one
 filter without a `field`; the request models are a union on `op` (`FilterIn` in
