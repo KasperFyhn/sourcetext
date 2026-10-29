@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api")
 
 def _fields(request: Request, session) -> list[dict]:
     """The full field list with its filter metadata (`db.list_fields`), computed
-    once per DB: typed fields never change after `SourceText` is built, and the
+    once per DB: fields never change after `SourceText` is built, and the
     metadata scans every value. Keyed by the sessionmaker, so a new DB (e.g. in
     tests) isn't served a stale list."""
     sessionmaker = request.app.state.db_sessionmaker
@@ -55,8 +55,8 @@ async def get_tabular_documents(
 
 @router.get("/documents/fields", response_model=FieldsResponse)
 async def get_fields(request: Request):
-    """The full field list (all typed-field kinds), for a document-detail pane that
-    isn't otherwise loading a page of documents (e.g. the scatter view)."""
+    """The full field list (every field type), for a document-detail pane that
+    isn't otherwise loading a page of documents (e.g. the plot view)."""
     with request.app.state.db_sessionmaker() as session:
         return {"fields": _fields(request, session)}
 

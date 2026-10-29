@@ -15,7 +15,7 @@ from sourcetext.server.routes.spans import router as spans_router
 
 build_directory = Path(__file__).parent / "static"
 
-# Dev-only switch, not public API: dev tooling sets `sourcetext.server.app.DEV = True` before
+# Dev-only switch, not public API: dev tooling sets `sourcetext.server.app._dev = True` before
 # starting the server to skip mounting the built UI (the Vite dev server serves it instead).
 _dev = False
 

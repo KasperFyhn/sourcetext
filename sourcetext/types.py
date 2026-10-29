@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Optional, TypeAlias, get_args
 import numpy as np
 import pandas as pd
 
-# The shape of a single value for each primary type — used both for the
+# The shape of a single value for each field type — used both for the
 # public-facing signatures (e.g. SourceText's prediction=/gold_label=) and, via
 # get_args() below, as the one source of truth for each type's runtime
 # validation, so the two can't silently drift apart.
@@ -86,7 +86,7 @@ def resolve_source(source: Any, data: Any, label: str) -> list:
 
 
 class _PrimaryType:
-    """Base for all typed fields. Accepts a column name (resolved against `data=`)
+    """Base for all field types. Accepts a column name (resolved against `data=`)
     or a raw array of values directly, so the same type works in either input mode.
     """
 

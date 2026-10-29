@@ -174,7 +174,7 @@ scenario in `dev/scenarios/`, each exposing `make_source_text()`). Run
 `./scripts/dev.sh <scenario>` for the API on :8001 plus the hot-reloading Vite
 UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 `sourcetext/server/static/`; startup fails if there is no build). `--dev` sets the
-internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
+internal `sourcetext.server.app._dev` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
 **Spans** (terms in `VOCABULARY.md`): a span has `start`/`end` and nullable `label`,
