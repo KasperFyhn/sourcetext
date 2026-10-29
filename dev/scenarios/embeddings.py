@@ -7,7 +7,7 @@ _SUBJECTS = ["The curator", "A visiting scholar", "The conservator", "An unnamed
 _VERBS = ["catalogued", "restored", "appraised", "photographed", "mislabelled"]
 _OBJECTS = ["the ceramic shard", "the oil portrait", "the bronze coin", "the manuscript leaf", "the woven textile"]
 
-# Well-separated Gaussian blobs, each tied to a group label, so the scatter view has
+# Well-separated Gaussian blobs, each tied to a group label, so the plot view has
 # visible cluster structure to verify against (rather than uniform noise) and the
 # "color by group" feature has clusters that visibly line up with their color.
 _CLUSTERS = [
@@ -28,7 +28,7 @@ _DEFINITIONS = {
 
 def make_source_text(n: int = 150, seed: int = 0) -> SourceText:
     """An embedding field (three visible clusters, with a few coincident points to
-    exercise the scatter view's multipoint hover) plus two score fields for the
+    exercise the plot view's multipoint hover) plus two score fields for the
     score-pair scatter mode, plus a label field (one group per cluster, with a few
     documents left ungrouped, and keyword definitions) for the "color by group"
     feature."""

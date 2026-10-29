@@ -7,11 +7,11 @@ import {
 } from '@tabler/icons-react'
 import { useState } from 'react'
 
-import { MatrixView } from './components/MatrixView'
-import { PlotView } from './components/PlotView'
-import { SpanView } from './components/SpanView'
-import { TabularView } from './components/TabularView'
 import { NotesFileProvider } from './contexts/NotesFileContext'
+import { MatrixView } from './views/matrix/MatrixView'
+import { PlotView } from './views/plot/PlotView'
+import { SpanView } from './views/spans/SpanView'
+import { TabularView } from './views/tabular/TabularView'
 
 type View = 'tabular' | 'plot' | 'matrix' | 'spans'
 

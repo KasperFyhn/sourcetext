@@ -46,7 +46,7 @@ class _ScalarField(Base):
 
 
 class Label(_ScalarField):
-    """Every LabelType field, including the `prediction` and `gold_label` presets."""
+    """Every LabelType field, including the `prediction` and `gold_label` named fields."""
 
     __tablename__ = "labels"
 
@@ -159,7 +159,7 @@ class Point2D(Base):
 
 class Note(Base):
     """A researcher's free-form interpretive note on a document. Written from the
-    UI, not part of the typed-field system (and not a `TextType` field)."""
+    UI, not a field (and not a `TextType` field)."""
 
     __tablename__ = "notes"
 

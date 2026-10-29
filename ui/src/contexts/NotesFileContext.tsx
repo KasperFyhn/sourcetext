@@ -12,8 +12,8 @@ import {
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { fetchNotesFile, setNotesFile } from '../api'
-import type { NotesFileStatus } from '../api'
+import { fetchNotesFile, setNotesFile } from '../api/notes'
+import type { NotesFileStatus } from '../api/notes'
 
 interface NotesFileContextValue {
   status: NotesFileStatus | null

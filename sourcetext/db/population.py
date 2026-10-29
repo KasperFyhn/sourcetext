@@ -4,7 +4,7 @@ Each function takes a `Session` and adds rows to it, but does not commit —
 callers control the transaction boundary, so a batch of documents and their
 labels/scores/spans/... can be inserted together as one unit of work.
 
-Typed fields are inserted with SQLAlchemy's bulk INSERT (see `_bulk_insert`)
+Field values are inserted with SQLAlchemy's bulk INSERT (see `_bulk_insert`)
 rather than as one ORM object per row, which is far too slow for a corpus with
 ~1M spans; they return how many rows they inserted.
 """

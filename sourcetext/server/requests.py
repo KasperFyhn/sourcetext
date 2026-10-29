@@ -1,7 +1,10 @@
 from typing import Annotated, Any, Literal
 
+from fastapi import HTTPException
 from fastapi_camelcase import CamelModel
-from pydantic import Field
+from pydantic import Field, TypeAdapter, ValidationError
+
+import sourcetext.db as db
 
 
 class FieldOut(CamelModel):
@@ -30,6 +33,23 @@ class SearchFilterIn(CamelModel):
 
 
 FilterIn = Annotated[FieldFilterIn | SearchFilterIn, Field(discriminator="op")]
+
+_filters_adapter = TypeAdapter(list[FilterIn])
+
+
+def parse_filters(filters: str | None) -> list[db.Filter] | None:
+    """Decode the `filters` query param (a JSON-encoded array — see FilterIn) into
+    `db.FieldFilter`s and `db.SearchFilter`s, or raise a 400 if it's malformed."""
+    if filters is None:
+        return None
+    try:
+        parsed = _filters_adapter.validate_json(filters)
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return [
+        db.SearchFilter(f.text, f.fields) if isinstance(f, SearchFilterIn) else db.FieldFilter(**f.model_dump())
+        for f in parsed
+    ]
 
 
 class DocumentOut(CamelModel):

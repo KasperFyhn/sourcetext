@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Use the words in `VOCABULARY.md` in code, docs and the UI:
+
+@VOCABULARY.md
+
 ## What this is
 
 A Python library for DH/NLP researchers to review model output (classification,
@@ -50,7 +54,12 @@ must carry the UI too.
 
 ## Architecture
 
-Every field beyond the raw text is a **typed field** (`LabelType`, `ScoreType`,
+Where code goes and how it's split follows the project skills
+`.claude/skills/backend-organization/` (for `sourcetext/`, `tests/`) and
+`.claude/skills/frontend-organization/` (for `ui/src/`). Some of the current code predates
+them; the paths below describe the code as it is now.
+
+Every field beyond the raw text has a **field type** (`LabelType`, `ScoreType`,
 `SpanType`, `TemporalType`, `TextType`, `Point2DType`), and
 each one is implemented identically across four files. Understanding one type
 end-to-end (e.g. grep for `Point2D`) is the fastest way to understand all of
@@ -66,7 +75,7 @@ them:
   construction — this is a general mechanism on `_PrimaryType`, not a
   `LabelType`-only special case, even though it's the only one wired up today.
   There is deliberately no separate group/cluster type: clusters and topics are
-  `LabelType` fields (`group=` is just a preset name).
+  `LabelType` fields (`group=` is just a named field).
 - **`schema.py`** — one SQLAlchemy ORM table per type. Most types share the
   `(id, document_id, field_name, value)` shape via the `_ScalarField` mixin;
   `Span` and `LabelDefinition` don't fit that shape and are standalone models.
@@ -89,16 +98,16 @@ them:
   (`Base.metadata.create_all` runs automatically), defaulting to an in-memory
   DB but accepting any SQLAlchemy URL.
 - **`sourcetext.py`** — `SourceText.__init__` is the single dispatch point.
-  Named presets (`prediction=`, `confidence=`, `gold_label=`, `score=`,
-  `embedding=`, `group=`/`group_definitions=`) are wrapped into their typed-field
+  Named fields (`prediction=`, `confidence=`, `gold_label=`, `score=`,
+  `embedding=`, `group=`/`group_definitions=`) are wrapped into their field-type
   instance and merged into the same `fields` dict as arbitrary `**fields`
   entries — from there, one loop resolves each field's values and calls the
   matching `db.add_*` function based on `isinstance` checks. There is
   intentionally **one dispatch path**, not a separate "simple" vs. "expert"
-  code path — adding a new preset kwarg means wrapping it before the loop, not
+  code path — adding a new named field means wrapping it before the loop, not
   branching inside it.
 
-**Adding a new primary type** touches all four files plus the README: a class
+**Adding a new field type** touches all four files plus the README: a class
 in `types.py`, a table in `schema.py`, an `add_*` function in `db.py`, a
 dispatch branch in `sourcetext.py`'s loop, an export in `sourcetext/__init__.py`,
 and a row in the field types tables in both `docs/api.md` and the README.
@@ -130,13 +139,13 @@ default the first; its documents come from the tabular route with the same
 a document-detail pane not otherwise loading a page of documents), `GET
 /api/documents/{id}` (one document's full scalar field values + note — used to
 populate that detail pane on selection from a non-tabular view), `GET`/`PUT
-/api/documents/{id}/note` (notes live in the `notes` table, which is not a typed
-field; an empty note deletes the row; the UI's `DocumentNotes` component loads and
-saves through these rather than reading `note` off the document payloads), and `GET`/`PUT /api/notes/file` (where notes
+/api/documents/{id}/note` (notes live in the `notes` table, which is not a
+field; an empty note deletes the row; the UI's `useNote` hook (`ui/src/document/`) loads
+and saves through these rather than reading `note` off the document payloads), and `GET`/`PUT /api/notes/file` (where notes
 are saved).
 
 **Notes persistence**: notes are the only user-created data, so they're the only
-thing persisted; typed fields are rebuilt from Python each run. `sourcetext/notes.py`'s
+thing persisted; fields are rebuilt from Python each run. `sourcetext/notes.py`'s
 `NotesFile` (one per `SourceText`, on `app.state.notes_file`) mirrors the `notes`
 table to a JSONL file (`notes_file=`, or chosen in the UI dialog), rewriting it
 atomically after each note change. Records carry `document_id` and `text_hash`:
@@ -148,41 +157,46 @@ note that can't be written to the file is rolled back. Without `notes_file=`,
 `./sourcetext_notes.jsonl` is used if it exists (it's the dialog's default), so
 reruns pick notes up again. Conflicting notes (switching files mid-session) are concatenated
 (`MERGE_SEPARATOR`), never dropped. `tests/conftest.py` runs each test in its own
-tmp working directory so a stray default notes file doesn't leak in. Read helpers are in `db/queries.py`. Routes must be `async def`: in-memory
+tmp working directory so a stray default notes file doesn't leak in. Read helpers are in `db/queries/` (one module per view, filtering in `filters.py`). Routes must be `async def`: in-memory
 DuckDB is per-thread, so FastAPI's threadpool would see an empty DB. The
-`{document_id}`-taking routes are registered after the static `tabular`/`scatter`/
-`strip`/`crosstab`/`fields` routes so FastAPI matches those literal paths first.
+Routes are split by resource in `server/routes/` (`documents`, `plot`, `matrix`, `spans`,
+`notes`, matching `ui/src/api/`). `GET /api/documents/{document_id}` is registered after the
+static `tabular`/`scatter`/`strip`/`crosstab`/`fields` routes (`app.py` includes the
+documents router last) so FastAPI matches those literal paths first.
+
+**UI data loading**: components don't fetch; hooks do, built on `useFetch`
+(`ui/src/hooks/useFetch.ts`: drops superseded responses, optionally keeps the previous
+data while loading). Shared hooks (`useFields`, `useDocumentsPage`) are in `hooks/`,
+view-only ones next to their view.
 
 **Dev workflow**: mock data lives outside the package in `dev/` (one module per
 scenario in `dev/scenarios/`, each exposing `make_source_text()`). Run
 `./scripts/dev.sh <scenario>` for the API on :8001 plus the hot-reloading Vite
 UI on :3000, or `python dev/serve.py <scenario>` alone (serves the built UI from
 `sourcetext/server/static/`; startup fails if there is no build). `--dev` sets the
-internal `sourcetext.server.app.DEV` switch (not public API), which skips mounting
+internal `sourcetext.server.app._dev` switch (not public API), which skips mounting
 the built UI (API only); `dev.sh` uses it.
 
-**Spans**: a span has `start`/`end` and nullable `label`, `score`, `norm_text`. Its
-*span text* is what it covers; its *type text* is `norm_text ?? span text`; a *span
-type* is (field, type text, label), shown as a badge, and its spans (tokens) are
-what gets highlighted. A `"span"` filter (`{field, op: "span", values?: labels
+**Spans** (terms in `VOCABULARY.md`): a span has `start`/`end` and nullable `label`,
+`score`, `norm_text`. A `"span"` filter (`{field, op: "span", values?: labels
 (null: unlabelled), min?/max?: score, text?: contains in span or norm text,
 typeText?: exact}`) matches documents with a matching span *and* prunes that
 field's spans everywhere (table values, `/api/spans` counts, document spans) — see
-`_span_conditions`/`_active_span_conditions` in `db/queries.py`. A span field's
+`span_conditions`/`active_span_conditions` in `db/queries/filters.py`. A span field's
 table value is its per-document type counts (`[{text, label, count}]`).
 
 **Search**: the search filter (`{op: "search", text, fields}`, `SearchFilter` in
-`db/queries.py`) matches documents where any of `fields` contains `text`, ignoring
+`db/queries/filters.py`) matches documents where any of `fields` contains `text`, ignoring
 case. A field is a `TextType` field's name, or `"text"` for the source text
 (unambiguous since `text` is `SourceText.__init__`'s own parameter). It's the one
 filter without a `field`; the request models are a union on `op` (`FilterIn` in
 `server/requests.py`). The UI shows it as one search box with a dropdown for what to
-search (`SearchBox` in `FieldFilters.tsx`), "all" sending every text field.
+search (`ui/src/fields/text/SearchBox.tsx`), "all" sending every text field.
 
 **Not yet implemented**: rendering all of a document's spans at once, coloured by
 label — don't assume it works.
 
 **Label definitions** ride along on the field list (`FieldInfo.definitions`, also
 on the scatter route's plot fields), not a separate route. The UI shows them via
-`LabelDefinitionInfo` (`ui/src/components/LabelDefinition.tsx`), an info icon
+`LabelDefinitionInfo` (`ui/src/fields/label/LabelDefinitionInfo.tsx`), an info icon
 placed next to a label value wherever it appears.

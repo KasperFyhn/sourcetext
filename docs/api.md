@@ -88,7 +88,7 @@ SourceText(
 | `Point2DType`  | `(x, y)` pair of numbers                             | position in the plot                                          | UMAP / t-SNE embedding projections     |
 | `SpanType`     | list of `{"start", "end"}` dicts, see below          | badges; filter by label, score, text; span view               | named entities, marked passages        |
 
-All columns in the table view are sortable, except 2D points and spans.
+All columns in the tabular view are sortable, except 2D points and spans.
 
 Notes on specific types:
 

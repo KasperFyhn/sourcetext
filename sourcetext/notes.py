@@ -1,7 +1,7 @@
 """Persisting notes to a JSONL sidecar file.
 
 Notes are the only data in sourcetext that the researcher creates rather than passes in
-from Python, so they're the only thing persisted; every typed field is rebuilt from the
+from Python, so they're the only thing persisted; every field is rebuilt from the
 user's data on each run. The file holds one JSON record per note:
 
     {"document_id": "42", "text_hash": "3f2a…", "note": "…", "updated_at": "2026-…+00:00"}
